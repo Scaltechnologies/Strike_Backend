@@ -1,0 +1,61 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: api-gateway
+
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: auth-service
+              uri: http://localhost:8081
+              predicates:
+                - Path=/api/auth/**
+              filters:
+                - StripPrefix=2
+
+            - id: user-service
+              uri: http://localhost:8082
+              predicates:
+                - Path=/api/user/**
+              filters:
+                - StripPrefix=2
+
+            - id: vendor-service
+              uri: http://localhost:8083
+              predicates:
+                - Path=/api/vendor/**
+
+            - id: card-service
+              uri: http://localhost:8084
+              predicates:
+                - Path=/api/card/**
+              filters:
+                - StripPrefix=2
+
+            - id: redemption-service
+              uri: http://localhost:8085
+              predicates:
+                - Path=/api/redemption/**
+              filters:
+                - StripPrefix=2
+
+            - id: ledger-service
+              uri: http://localhost:8086
+              predicates:
+                - Path=/api/ledger/**
+              filters:
+                - StripPrefix=2
+
+            - id: admin-service
+              uri: http://localhost:8087
+              predicates:
+                - Path=/api/admin/**
+              filters:
+                - StripPrefix=2
+
+jwt:
+  secret: STRIKE_SUPER_SECRET_KEY_2026_STRIKE_PLATFORM
