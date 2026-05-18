@@ -8,7 +8,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -22,7 +21,6 @@ public class VendorAuthService {
     public void registerVendor(RegisterVendorRequest request) {
 
         Vendor vendor = Vendor.builder()
-                .id(UUID.randomUUID())
                 .hotelName(request.getHotelName())
                 .address(request.getAddress())
                 .mobileNumber(request.getMobileNumber())
@@ -43,7 +41,9 @@ public class VendorAuthService {
 
         Vendor vendor = vendorRepository
                 .findByMobileNumber(mobileNumber)
-                .orElseThrow(() -> new RuntimeException("Vendor not registered"));
+                .orElseThrow(() ->
+                        new RuntimeException("Vendor not registered")
+                );
 
         if (!"ACTIVE".equals(vendor.getStatus())) {
             throw new RuntimeException("Vendor account not active");
@@ -63,15 +63,21 @@ public class VendorAuthService {
 
         Vendor vendor = vendorRepository
                 .findByMobileNumber(mobile)
-                .orElseThrow(() -> new RuntimeException("Vendor not found"));
+                .orElseThrow(() ->
+                        new RuntimeException("Vendor not found")
+                );
 
         // If vendor just registered activate it
         if ("PENDING".equals(vendor.getStatus())) {
+
             vendor.setStatus("ACTIVE");
+
             vendorRepository.save(vendor);
         }
 
-        return jwtUtil.generateToken(vendor.getId(), mobile);
+        return jwtUtil.generateToken(
+                vendor.getId(),
+                mobile
+        );
     }
 }
-

@@ -4,10 +4,11 @@ import com.authservice.entity.Vendor;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
-import java.util.UUID;
 
-public interface VendorRepository extends JpaRepository<Vendor, UUID> {
+public interface VendorRepository
+        extends JpaRepository<Vendor, Long> {
 
-    Optional<Vendor> findByMobileNumber(String mobileNumber);
-
+    Optional<Vendor> findByMobileNumber(
+            String mobileNumber
+    );
 }

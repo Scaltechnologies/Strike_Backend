@@ -6,7 +6,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -16,10 +15,11 @@ public class OtpService {
 
     public String generateOtp(String mobile){
 
-        String otp = String.valueOf((int)((Math.random()*900000)+100000));
+        String otp = String.valueOf(
+                (int)((Math.random()*900000)+100000)
+        );
 
         OtpCode code = OtpCode.builder()
-                .id(UUID.randomUUID())
                 .mobile(mobile)
                 .otpCode(otp)
                 .verified(false)
@@ -30,24 +30,33 @@ public class OtpService {
         otpRepository.save(code);
 
         // SMS integration later
-        System.out.println("OTP for " + mobile + " = " + otp);
+        System.out.println(
+                "OTP for " + mobile + " = " + otp
+        );
 
         return otp;
     }
 
-    public boolean verifyOtp(String mobile,String otp){
+    public boolean verifyOtp(
+            String mobile,
+            String otp
+    ){
 
         OtpCode code = otpRepository
-                .findTopByMobileOrderByCreatedAtDesc(mobile)
+                .findTopByMobileOrderByCreatedAtDesc(
+                        mobile
+                )
                 .orElseThrow();
 
-        if(code.getExpiresAt().isBefore(LocalDateTime.now()))
+        if(code.getExpiresAt()
+                .isBefore(LocalDateTime.now()))
             return false;
 
         if(!code.getOtpCode().equals(otp))
             return false;
 
         code.setVerified(true);
+
         otpRepository.save(code);
 
         return true;

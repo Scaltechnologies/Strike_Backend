@@ -4,10 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
-@Table(name = "otp_codes", schema = "auth_service")
+@Table(name = "otp_codes")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,7 +15,8 @@ import java.util.UUID;
 public class OtpCode {
 
     @Id
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     private String mobile;
 

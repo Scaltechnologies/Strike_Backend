@@ -4,10 +4,12 @@ import com.authservice.entity.OtpCode;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
-import java.util.UUID;
 
-public interface OtpRepository extends JpaRepository<OtpCode, UUID> {
+public interface OtpRepository
+        extends JpaRepository<OtpCode, Long> {
 
-    Optional<OtpCode> findTopByMobileOrderByCreatedAtDesc(String mobile);
-
+    Optional<OtpCode>
+    findTopByMobileOrderByCreatedAtDesc(
+            String mobile
+    );
 }

@@ -4,10 +4,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Entity
-@Table(name = "vendors", schema = "auth_service")
+@Table(name = "vendors")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -16,7 +15,8 @@ import java.util.UUID;
 public class Vendor {
 
     @Id
-    private UUID id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
     @Column(name = "hotel_name")
     private String hotelName;
