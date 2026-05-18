@@ -1,86 +1,70 @@
-
 package com.vendor_service.service;
 
 import com.vendor_service.dto.request.UpdateVendorProfileRequest;
 import com.vendor_service.dto.response.VendorProfileResponse;
-import com.vendor_service.entity.Vendor;
 import com.vendor_service.entity.VendorProfile;
 import com.vendor_service.repository.VendorProfileRepository;
-import com.vendor_service.repository.VendorRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
 public class VendorProfileService {
 
     private final VendorProfileRepository vendorProfileRepository;
-    private final VendorRepository vendorRepository;
 
-    public VendorProfileResponse getProfile(UUID vendorId) {
+    public VendorProfileResponse updateProfile(
+            Long vendorId,
+            UpdateVendorProfileRequest request
+    ) {
 
         VendorProfile profile = vendorProfileRepository
-                .findById(vendorId)
-                .orElseGet(() -> createProfile(vendorId));
+                .findByVendorId(vendorId)
+                .orElse(
+                        VendorProfile.builder()
+                                .vendorId(vendorId)
+                                .build()
+                );
 
-        return mapToResponse(profile);
-    }
-
-    private VendorProfile createProfile(UUID vendorId) {
-
-        Vendor vendor = vendorRepository.findById(vendorId)
-                .orElseThrow(() -> new RuntimeException("Vendor not found"));
-
-        VendorProfile profile = VendorProfile.builder()
-                .vendorId(vendor.getId())
-                .hotelName(vendor.getHotelName())
-                .address(vendor.getAddress())
-                .email(vendor.getEmail())
-                .latitude(vendor.getLatitude())
-                .longitude(vendor.getLongitude())
-                .createdAt(LocalDateTime.now())
-                .build();
-
-        return vendorProfileRepository.save(profile);
-    }
-
-    public VendorProfileResponse updateProfile(UUID vendorId,
-                                               UpdateVendorProfileRequest request) {
-
-        VendorProfile profile = vendorProfileRepository.findById(vendorId)
-                .orElseThrow(() -> new RuntimeException("Profile not found"));
-
-        profile.setHotelName(request.getHotelName());
+        profile.setShopName(request.getShopName());
+        profile.setOwnerName(request.getOwnerName());
+        profile.setMobile(request.getMobile());
         profile.setAddress(request.getAddress());
-        profile.setEmail(request.getEmail());
-        profile.setLatitude(request.getLatitude());
-        profile.setLongitude(request.getLongitude());
+        profile.setCategory(request.getCategory());
         profile.setDescription(request.getDescription());
-        profile.setCuisineType(request.getCuisineType());
-        profile.setUpdatedAt(LocalDateTime.now());
+        profile.setLogoUrl(request.getLogoUrl());
 
-        vendorProfileRepository.save(profile);
+        VendorProfile saved =
+                vendorProfileRepository.save(profile);
+
+        return mapToResponse(saved);
+    }
+
+    public VendorProfileResponse getProfile(Long vendorId) {
+
+        VendorProfile profile = vendorProfileRepository
+                .findByVendorId(vendorId)
+                .orElseThrow(() ->
+                        new RuntimeException("Vendor profile not found")
+                );
 
         return mapToResponse(profile);
     }
 
-    private VendorProfileResponse mapToResponse(VendorProfile profile) {
+    private VendorProfileResponse mapToResponse(
+            VendorProfile profile
+    ) {
 
         return VendorProfileResponse.builder()
+                .id(profile.getId())
                 .vendorId(profile.getVendorId())
-                .hotelName(profile.getHotelName())
+                .shopName(profile.getShopName())
+                .ownerName(profile.getOwnerName())
+                .mobile(profile.getMobile())
                 .address(profile.getAddress())
-                .email(profile.getEmail())
-                .latitude(profile.getLatitude())
-                .longitude(profile.getLongitude())
+                .category(profile.getCategory())
                 .description(profile.getDescription())
-                .cuisineType(profile.getCuisineType())
-                .profileImage(profile.getProfileImage())
-                .createdAt(profile.getCreatedAt())
+                .logoUrl(profile.getLogoUrl())
                 .build();
     }
 }
-

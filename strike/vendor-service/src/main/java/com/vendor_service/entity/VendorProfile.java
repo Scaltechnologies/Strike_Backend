@@ -3,39 +3,35 @@ package com.vendor_service.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
 @Entity
 @Table(name = "vendor_profiles")
 @Getter
 @Setter
-@Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 public class VendorProfile {
 
     @Id
-    private UUID vendorId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    private String hotelName;
+    private Long vendorId;
+
+    @Column(nullable = false)
+    private String shopName;
+
+    private String ownerName;
+
+    @Column(unique = true)
+    private String mobile;
 
     private String address;
 
-    private String email;
+    private String category;
 
-    private Double latitude;
-
-    private Double longitude;
-
+    @Column(length = 1000)
     private String description;
 
-    private String cuisineType;
-
-    private String profileImage;
-
-    private LocalDateTime createdAt;
-
-    private LocalDateTime updatedAt;
+    private String logoUrl;
 }
-

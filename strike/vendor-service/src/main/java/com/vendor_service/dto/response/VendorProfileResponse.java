@@ -1,35 +1,27 @@
-
 package com.vendor_service.dto.response;
 
 import lombok.Builder;
-import lombok.Data;
+import lombok.Getter;
 
-import java.time.LocalDateTime;
-import java.util.UUID;
-
-@Data
+@Getter
 @Builder
 public class VendorProfileResponse {
 
-    private UUID vendorId;
+    private Long id;
 
-    private String hotelName;
+    private Long vendorId;
+
+    private String shopName;
+
+    private String ownerName;
+
+    private String mobile;
 
     private String address;
 
-    private String email;
-
-    private Double latitude;
-
-    private Double longitude;
+    private String category;
 
     private String description;
 
-    private String cuisineType;
-
-    private String profileImage;
-
-    private LocalDateTime createdAt;
-
+    private String logoUrl;
 }
-

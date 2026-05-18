@@ -1,23 +1,23 @@
 package com.vendor_service.dto.request;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class UpdateVendorProfileRequest {
 
-    private String hotelName;
+    private String shopName;
+
+    private String ownerName;
+
+    private String mobile;
 
     private String address;
 
-    private String email;
-
-    private Double latitude;
-
-    private Double longitude;
+    private String category;
 
     private String description;
 
-    private String cuisineType;
-
+    private String logoUrl;
 }
-
