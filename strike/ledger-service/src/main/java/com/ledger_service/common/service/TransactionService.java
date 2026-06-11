@@ -2,13 +2,12 @@ package com.ledger_service.common.service;
 
 import com.ledger_service.common.dto.RecordTransactionRequest;
 import com.ledger_service.common.dto.TransactionResponse;
-
-import java.util.List;
+import com.ledger_service.common.response.PageResponse;
 
 public interface TransactionService {
     TransactionResponse record(RecordTransactionRequest request);
-    List<TransactionResponse> getByStore(Long storeId);
-    List<TransactionResponse> getByCustomer(Long customerId);
-    List<TransactionResponse> getBySubscription(Long subscriptionId);
-    List<TransactionResponse> getAll();
+    PageResponse<TransactionResponse> getByStore(Long storeId, int page, int size);
+    PageResponse<TransactionResponse> getByCustomer(Long customerId, int page, int size);
+    PageResponse<TransactionResponse> getBySubscription(Long subscriptionId, int page, int size);
+    PageResponse<TransactionResponse> getAll(int page, int size);
 }

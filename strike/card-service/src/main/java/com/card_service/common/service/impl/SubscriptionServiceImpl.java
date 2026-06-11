@@ -13,10 +13,12 @@ import com.card_service.common.exception.InsufficientBalanceException;
 import com.card_service.common.exception.ResourceNotFoundException;
 import com.card_service.common.repository.ActiveSubscriptionRepository;
 import com.card_service.common.repository.CardDefinitionRepository;
+import com.card_service.common.response.PageResponse;
 import com.card_service.common.service.SubscriptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -90,10 +92,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     }
 
     @Override
-    public List<SubscriptionResponse> getByUser(Long userId) {
-        return subscriptionRepository.findByUserId(userId).stream()
-                .map(sub -> toResponse(sub, getCardName(sub.getCardDefinitionId())))
-                .toList();
+    public PageResponse<SubscriptionResponse> getByUser(Long userId, int page, int size) {
+        return PageResponse.from(
+                subscriptionRepository.findByUserId(userId, PageRequest.of(page, size))
+                        .map(sub -> toResponse(sub, getCardName(sub.getCardDefinitionId()))));
     }
 
     @Override
@@ -103,7 +105,6 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         List<ActiveSubscription> actives =
                 subscriptionRepository.findByUserIdAndStatus(userId, SubscriptionStatus.ACTIVE);
 
-        // lazily expire any that have passed their expiry date
         List<ActiveSubscription> expired = actives.stream()
                 .filter(s -> s.getExpiresAt().isBefore(now))
                 .peek(s -> s.setStatus(SubscriptionStatus.EXPIRED))
@@ -119,10 +120,10 @@ public class SubscriptionServiceImpl implements SubscriptionService {
     }
 
     @Override
-    public List<SubscriptionResponse> getByStore(Long storeId) {
-        return subscriptionRepository.findByStoreId(storeId).stream()
-                .map(sub -> toResponse(sub, getCardName(sub.getCardDefinitionId())))
-                .toList();
+    public PageResponse<SubscriptionResponse> getByStore(Long storeId, int page, int size) {
+        return PageResponse.from(
+                subscriptionRepository.findByStoreId(storeId, PageRequest.of(page, size))
+                        .map(sub -> toResponse(sub, getCardName(sub.getCardDefinitionId()))));
     }
 
     @Override
@@ -178,6 +179,25 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         return toResponse(subscriptionRepository.save(sub), getCardName(sub.getCardDefinitionId()));
     }
 
+    @Override
+    @Transactional
+    public int expireOverdueSubscriptions() {
+        LocalDateTime now = LocalDateTime.now();
+
+        // Fetch before updating so we can attempt per-user expiry notifications
+        List<ActiveSubscription> expiring =
+                subscriptionRepository.findByStatusAndExpiresAtBefore(SubscriptionStatus.ACTIVE, now);
+
+        for (ActiveSubscription sub : expiring) {
+            sendExpiryNotification(sub.getUserId(), sub.getCardDefinitionId(), sub.getExpiresAt());
+        }
+
+        // Single-statement bulk UPDATE — no per-row round trips
+        int count = subscriptionRepository.bulkExpire(now);
+        log.info("Subscription expiry sweep: {} subscription(s) marked EXPIRED", count);
+        return count;
+    }
+
     private void sendSubscriptionNotification(Long userId, String cardName, BigDecimal balance, LocalDateTime expiresAt) {
         try {
             Map<String, Object> payload = new HashMap<>();
@@ -190,6 +210,21 @@ public class SubscriptionServiceImpl implements SubscriptionService {
                     notificationServiceUrl + "/internal/notify/subscription", payload, String.class);
         } catch (Exception e) {
             log.warn("Could not send subscription notification for userId={}: {}", userId, e.getMessage());
+        }
+    }
+
+    private void sendExpiryNotification(Long userId, Long cardDefinitionId, LocalDateTime expiredAt) {
+        try {
+            String cardName = getCardName(cardDefinitionId);
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("userId", userId);
+            payload.put("cardName", cardName);
+            payload.put("expiredAt", expiredAt != null ? expiredAt.toString() : null);
+            payload.put("event", "SUBSCRIPTION_EXPIRED");
+            restTemplate.postForObject(
+                    notificationServiceUrl + "/internal/notify/subscription-expired", payload, String.class);
+        } catch (Exception e) {
+            log.warn("Could not send expiry notification for userId={}: {}", userId, e.getMessage());
         }
     }
 

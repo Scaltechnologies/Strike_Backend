@@ -31,8 +31,13 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(adminJwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .authorizeHttpRequests(auth -> auth
-                        // Public: login and first-time setup only
-                        .requestMatchers("/api/admin/auth/login", "/api/admin/auth/setup").permitAll()
+                        // Public: login, setup, refresh, logout
+                        .requestMatchers(
+                                "/api/admin/auth/login",
+                                "/api/admin/auth/setup",
+                                "/api/admin/auth/refresh",
+                                "/api/admin/auth/logout"
+                        ).permitAll()
                         // Inter-service internal calls (no admin JWT)
                         .requestMatchers("/internal/**").permitAll()
                         // API docs

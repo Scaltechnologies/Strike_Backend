@@ -2,12 +2,11 @@ package com.redemption_service.user.controller;
 
 import com.redemption_service.common.dto.RedemptionResponse;
 import com.redemption_service.common.response.ApiResponse;
+import com.redemption_service.common.response.PageResponse;
 import com.redemption_service.common.service.RedemptionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/redemptions")
@@ -18,14 +17,20 @@ public class UserRedemptionController {
 
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ApiResponse<List<RedemptionResponse>> getByUser(@PathVariable Long userId) {
-        return ApiResponse.success(redemptionService.getByUser(userId));
+    public ApiResponse<PageResponse<RedemptionResponse>> getByUser(
+            @PathVariable Long userId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(redemptionService.getByUser(userId, page, size));
     }
 
     @GetMapping("/subscription/{subscriptionId}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")
-    public ApiResponse<List<RedemptionResponse>> getBySubscription(@PathVariable Long subscriptionId) {
-        return ApiResponse.success(redemptionService.getBySubscription(subscriptionId));
+    public ApiResponse<PageResponse<RedemptionResponse>> getBySubscription(
+            @PathVariable Long subscriptionId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(redemptionService.getBySubscription(subscriptionId, page, size));
     }
 
     @GetMapping("/{id}")

@@ -5,9 +5,11 @@ import com.admin_service.commission.dto.RecordCommissionRequest;
 import com.admin_service.commission.entity.CommissionRecord;
 import com.admin_service.commission.repository.CommissionRecordRepository;
 import com.admin_service.commission.service.CommissionService;
+import com.admin_service.common.response.PageResponse;
 import com.admin_service.vendor.entity.VendorRecord;
 import com.admin_service.vendor.repository.VendorRecordRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -53,18 +55,24 @@ public class CommissionServiceImpl implements CommissionService {
     }
 
     @Override
-    public List<CommissionRecordResponse> getAll() {
-        return commissionRepository.findAll().stream().map(this::toResponse).toList();
+    public PageResponse<CommissionRecordResponse> getAll(int page, int size) {
+        return PageResponse.from(
+                commissionRepository.findAll(PageRequest.of(page, size))
+                        .map(this::toResponse));
     }
 
     @Override
-    public List<CommissionRecordResponse> getByVendor(Long vendorId) {
-        return commissionRepository.findByVendorId(vendorId).stream().map(this::toResponse).toList();
+    public PageResponse<CommissionRecordResponse> getByVendor(Long vendorId, int page, int size) {
+        return PageResponse.from(
+                commissionRepository.findByVendorId(vendorId, PageRequest.of(page, size))
+                        .map(this::toResponse));
     }
 
     @Override
-    public List<CommissionRecordResponse> getPending() {
-        return commissionRepository.findByStatus("PENDING").stream().map(this::toResponse).toList();
+    public PageResponse<CommissionRecordResponse> getPending(int page, int size) {
+        return PageResponse.from(
+                commissionRepository.findByStatus("PENDING", PageRequest.of(page, size))
+                        .map(this::toResponse));
     }
 
     @Override
@@ -111,7 +119,7 @@ public class CommissionServiceImpl implements CommissionService {
         BigDecimal settledCommission = commissionRepository.sumCommissionByStatus("SETTLED");
         BigDecimal totalRevenue = commissionRepository.totalSubscriptionRevenue();
         long totalRecords = commissionRepository.count();
-        long pendingCount = commissionRepository.findByStatus("PENDING").size();
+        long pendingCount = commissionRepository.countByStatus("PENDING");
 
         Map<String, Object> stats = new LinkedHashMap<>();
         stats.put("totalCommission", totalCommission);

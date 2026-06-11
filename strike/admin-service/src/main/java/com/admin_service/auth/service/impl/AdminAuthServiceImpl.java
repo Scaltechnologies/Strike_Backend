@@ -4,6 +4,7 @@ import com.admin_service.auth.dto.*;
 import com.admin_service.auth.entity.Admin;
 import com.admin_service.auth.repository.AdminRepository;
 import com.admin_service.auth.service.AdminAuthService;
+import com.admin_service.auth.service.AdminRefreshTokenService;
 import com.admin_service.config.AdminJwtUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -11,6 +12,7 @@ import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -23,6 +25,7 @@ public class AdminAuthServiceImpl implements AdminAuthService, ApplicationRunner
     private final AdminRepository adminRepository;
     private final PasswordEncoder passwordEncoder;
     private final AdminJwtUtil jwtUtil;
+    private final AdminRefreshTokenService refreshTokenService;
 
     // Seeds the default super-admin on first startup
     @Override
@@ -41,6 +44,7 @@ public class AdminAuthServiceImpl implements AdminAuthService, ApplicationRunner
     }
 
     @Override
+    @Transactional
     public AdminLoginResponse login(AdminLoginRequest request) {
         Admin admin = adminRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new RuntimeException("Invalid credentials"));
@@ -56,12 +60,15 @@ public class AdminAuthServiceImpl implements AdminAuthService, ApplicationRunner
         adminRepository.save(admin);
 
         String token = jwtUtil.generateToken(admin.getId(), admin.getEmail(), admin.getRole());
+        String refreshToken = refreshTokenService.create(admin.getId());
         return AdminLoginResponse.builder()
                 .adminId(admin.getId())
                 .email(admin.getEmail())
                 .name(admin.getName())
                 .role(admin.getRole())
                 .token(token)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtUtil.getExpirationMs() / 1000)
                 .build();
     }
 

@@ -31,6 +31,8 @@ spring:
 
 jwt:
   secret: STRIKE_SUPER_SECRET_KEY_2026_STRIKE_PLATFORM
+  expiration: 3600000          # 1 hour
+  refresh-expiration: 2592000000  # 30 days
 
 services:
   auth-url: http://localhost:8081

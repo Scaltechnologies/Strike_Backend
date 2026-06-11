@@ -5,6 +5,7 @@ import com.card_service.common.dto.CreateCardRequest;
 import com.card_service.common.dto.SubscriptionResponse;
 import com.card_service.common.dto.UpdateCardRequest;
 import com.card_service.common.response.ApiResponse;
+import com.card_service.common.response.PageResponse;
 import com.card_service.common.service.CardDefinitionService;
 import com.card_service.common.service.SubscriptionService;
 import jakarta.validation.Valid;
@@ -55,8 +56,11 @@ public class VendorCardController {
     }
 
     @GetMapping("/subscriptions/store/{storeId}")
-    public ApiResponse<List<SubscriptionResponse>> getSubscriptionsByStore(@PathVariable Long storeId) {
-        return ApiResponse.success(subscriptionService.getByStore(storeId));
+    public ApiResponse<PageResponse<SubscriptionResponse>> getSubscriptionsByStore(
+            @PathVariable Long storeId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(subscriptionService.getByStore(storeId, page, size));
     }
 
     @GetMapping("/subscriptions/{subscriptionId}")

@@ -36,3 +36,6 @@ services:
   ledger-url: http://localhost:8086
   admin-url: http://localhost:8087
   notification-url: http://localhost:8088
+
+scheduler:
+  expiry-cron: "0 0 * * * *"   # every hour at :00 — override in prod if needed

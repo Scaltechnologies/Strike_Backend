@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
@@ -22,7 +23,11 @@ public class VendorAuthService {
     private final VendorRepository vendorRepository;
     private final OtpService otpService;
     private final JwtUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
     private final RestTemplate restTemplate;
+
+    @Value("${jwt.expiration}")
+    private long jwtExpirationMs;
 
     @Value("${services.vendor-url:http://localhost:8083}")
     private String vendorServiceUrl;
@@ -38,7 +43,7 @@ public class VendorAuthService {
                         case "REJECTED" -> throw new RuntimeException("Your registration was rejected. Please contact support.");
                         case "SUSPENDED" -> throw new RuntimeException("Your account is suspended. Please contact support.");
                     }
-                    return true; // PENDING or VERIFIED: resend OTP
+                    return true;
                 })
                 .orElse(false);
 
@@ -70,6 +75,7 @@ public class VendorAuthService {
         otpService.generateOtp(mobileNumber, "VENDOR");
     }
 
+    @Transactional
     public VendorAuthResponse verifyOtp(String mobile, String otp) {
         if (!otpService.verifyOtp(mobile, otp)) {
             throw new RuntimeException("Invalid or expired OTP");
@@ -104,9 +110,13 @@ public class VendorAuthService {
             throw new RuntimeException("Vendor account is " + vendor.getStatus() + ". Access denied.");
         }
 
-        String token = jwtUtil.generateToken(vendor.getId(), mobile, "VENDOR");
+        String accessToken = jwtUtil.generateToken(vendor.getId(), mobile, "VENDOR");
+        String refreshToken = refreshTokenService.createForVendor(vendor.getId());
+
         return VendorAuthResponse.builder()
-                .token(token)
+                .token(accessToken)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtExpirationMs / 1000)
                 .vendorId(vendor.getId())
                 .hotelName(vendor.getHotelName())
                 .mobileNumber(vendor.getMobileNumber())
@@ -151,15 +161,16 @@ public class VendorAuthService {
 
     private void syncVendorProfile(Vendor vendor) {
         try {
-            String url = vendorServiceUrl + "/internal/vendors/" + vendor.getId() + "/init";
-            Map<String, Object> payload = Map.of(
-                    "vendorId", vendor.getId(),
-                    "shopName", vendor.getHotelName() != null ? vendor.getHotelName() : "",
-                    "mobile", vendor.getMobileNumber() != null ? vendor.getMobileNumber() : "",
-                    "address", vendor.getAddress() != null ? vendor.getAddress() : "",
-                    "email", vendor.getEmail() != null ? vendor.getEmail() : ""
-            );
-            restTemplate.postForObject(url, payload, Object.class);
+            restTemplate.postForObject(
+                    vendorServiceUrl + "/internal/vendors/" + vendor.getId() + "/init",
+                    Map.of(
+                            "vendorId", vendor.getId(),
+                            "shopName", vendor.getHotelName() != null ? vendor.getHotelName() : "",
+                            "mobile", vendor.getMobileNumber() != null ? vendor.getMobileNumber() : "",
+                            "address", vendor.getAddress() != null ? vendor.getAddress() : "",
+                            "email", vendor.getEmail() != null ? vendor.getEmail() : ""
+                    ),
+                    Object.class);
         } catch (Exception e) {
             log.warn("Could not sync vendor profile to vendor-service: {}", e.getMessage());
         }
@@ -167,15 +178,16 @@ public class VendorAuthService {
 
     private void notifyAdminService(Vendor vendor) {
         try {
-            String url = adminServiceUrl + "/internal/admin/vendors";
-            Map<String, Object> payload = Map.of(
-                    "vendorId", vendor.getId(),
-                    "hotelName", vendor.getHotelName() != null ? vendor.getHotelName() : "",
-                    "mobileNumber", vendor.getMobileNumber() != null ? vendor.getMobileNumber() : "",
-                    "email", vendor.getEmail() != null ? vendor.getEmail() : "",
-                    "status", "PENDING"
-            );
-            restTemplate.postForObject(url, payload, Object.class);
+            restTemplate.postForObject(
+                    adminServiceUrl + "/internal/admin/vendors",
+                    Map.of(
+                            "vendorId", vendor.getId(),
+                            "hotelName", vendor.getHotelName() != null ? vendor.getHotelName() : "",
+                            "mobileNumber", vendor.getMobileNumber() != null ? vendor.getMobileNumber() : "",
+                            "email", vendor.getEmail() != null ? vendor.getEmail() : "",
+                            "status", "PENDING"
+                    ),
+                    Object.class);
         } catch (Exception e) {
             log.warn("Could not notify admin-service of new vendor registration: {}", e.getMessage());
         }

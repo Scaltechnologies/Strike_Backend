@@ -11,4 +11,6 @@ public class AdminLoginResponse {
     private String name;
     private String role;
     private String token;
+    private String refreshToken;
+    private long expiresIn;
 }

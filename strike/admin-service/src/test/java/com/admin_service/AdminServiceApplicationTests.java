@@ -1,13 +1,14 @@
 package com.admin_service;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
+@Disabled("Requires running PostgreSQL — run with the 'integration' profile")
 @SpringBootTest
 class AdminServiceApplicationTests {
 
-	@Test
-	void contextLoads() {
-	}
-
+    @Test
+    void contextLoads() {
+    }
 }

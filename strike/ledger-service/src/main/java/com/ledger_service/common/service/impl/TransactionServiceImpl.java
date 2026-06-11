@@ -4,11 +4,11 @@ import com.ledger_service.common.dto.RecordTransactionRequest;
 import com.ledger_service.common.dto.TransactionResponse;
 import com.ledger_service.common.entity.Transaction;
 import com.ledger_service.common.repository.TransactionRepository;
+import com.ledger_service.common.response.PageResponse;
 import com.ledger_service.common.service.TransactionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -30,26 +30,31 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
-    public List<TransactionResponse> getByStore(Long storeId) {
-        return transactionRepository.findByStoreIdOrderByCreatedAtDesc(storeId)
-                .stream().map(this::toResponse).toList();
+    public PageResponse<TransactionResponse> getByStore(Long storeId, int page, int size) {
+        return PageResponse.from(
+                transactionRepository.findByStoreIdOrderByCreatedAtDesc(storeId, PageRequest.of(page, size))
+                        .map(this::toResponse));
     }
 
     @Override
-    public List<TransactionResponse> getByCustomer(Long customerId) {
-        return transactionRepository.findByCustomerIdOrderByCreatedAtDesc(customerId)
-                .stream().map(this::toResponse).toList();
+    public PageResponse<TransactionResponse> getByCustomer(Long customerId, int page, int size) {
+        return PageResponse.from(
+                transactionRepository.findByCustomerIdOrderByCreatedAtDesc(customerId, PageRequest.of(page, size))
+                        .map(this::toResponse));
     }
 
     @Override
-    public List<TransactionResponse> getBySubscription(Long subscriptionId) {
-        return transactionRepository.findBySubscriptionIdOrderByCreatedAtDesc(subscriptionId)
-                .stream().map(this::toResponse).toList();
+    public PageResponse<TransactionResponse> getBySubscription(Long subscriptionId, int page, int size) {
+        return PageResponse.from(
+                transactionRepository.findBySubscriptionIdOrderByCreatedAtDesc(subscriptionId, PageRequest.of(page, size))
+                        .map(this::toResponse));
     }
 
     @Override
-    public List<TransactionResponse> getAll() {
-        return transactionRepository.findAll().stream().map(this::toResponse).toList();
+    public PageResponse<TransactionResponse> getAll(int page, int size) {
+        return PageResponse.from(
+                transactionRepository.findAll(PageRequest.of(page, size))
+                        .map(this::toResponse));
     }
 
     private TransactionResponse toResponse(Transaction t) {

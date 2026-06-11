@@ -39,8 +39,11 @@ public class AdminUserController {
     // ── List & Detail ────────────────────────────────────────────────────────
 
     @GetMapping
-    public Object getAllUsers() {
-        return restTemplate.getForObject(authServiceUrl + "/internal/users", Object.class);
+    public Object getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return restTemplate.getForObject(
+                authServiceUrl + "/internal/users?page=" + page + "&size=" + size, Object.class);
     }
 
     @GetMapping("/{userId}")

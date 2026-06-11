@@ -2,13 +2,16 @@ package com.authservice.user.service;
 
 import com.authservice.security.JwtUtil;
 import com.authservice.service.OtpService;
+import com.authservice.service.RefreshTokenService;
 import com.authservice.user.dto.AuthResponse;
 import com.authservice.user.dto.SendOtpRequest;
 import com.authservice.user.dto.VerifyOtpRequest;
 import com.authservice.user.entity.UserAuth;
 import com.authservice.user.repository.UserAuthRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
@@ -17,6 +20,10 @@ public class UserAuthServiceImpl implements UserAuthService {
     private final UserAuthRepository userAuthRepository;
     private final OtpService otpService;
     private final JwtUtil jwtUtil;
+    private final RefreshTokenService refreshTokenService;
+
+    @Value("${jwt.expiration}")
+    private long jwtExpirationMs;
 
     @Override
     public String sendOtp(SendOtpRequest request) {
@@ -31,23 +38,14 @@ public class UserAuthServiceImpl implements UserAuthService {
     }
 
     @Override
-    public AuthResponse verifyOtp(
-            VerifyOtpRequest request
-    ) {
-
-        boolean valid = otpService.verifyOtp(
-                request.getMobileNumber(),
-                request.getOtp()
-        );
-
+    @Transactional
+    public AuthResponse verifyOtp(VerifyOtpRequest request) {
+        boolean valid = otpService.verifyOtp(request.getMobileNumber(), request.getOtp());
         if (!valid) {
             throw new RuntimeException("Invalid OTP");
         }
 
-        UserAuth user = userAuthRepository
-                .findByMobileNumber(request.getMobileNumber())
-                .orElse(null);
-
+        UserAuth user = userAuthRepository.findByMobileNumber(request.getMobileNumber()).orElse(null);
         boolean newUser = false;
 
         if (user != null && Boolean.TRUE.equals(user.getBanned())) {
@@ -55,39 +53,28 @@ public class UserAuthServiceImpl implements UserAuthService {
         }
 
         if (user == null) {
-
             user = UserAuth.builder()
-                    .mobileNumber(
-                            request.getMobileNumber()
-                    )
+                    .mobileNumber(request.getMobileNumber())
                     .verified(true)
                     .build();
-
             user = userAuthRepository.save(user);
-
             newUser = true;
-
         } else {
-
             user.setVerified(true);
-
             user = userAuthRepository.save(user);
         }
 
-        String token = jwtUtil.generateToken(user.getId(), user.getMobileNumber(), "USER");
+        String accessToken = jwtUtil.generateToken(user.getId(), user.getMobileNumber(), "USER");
+        String refreshToken = refreshTokenService.createForUser(user.getId());
 
         return AuthResponse.builder()
                 .userId(user.getId())
-                .mobileNumber(
-                        user.getMobileNumber()
-                )
-                .token(token)
+                .mobileNumber(user.getMobileNumber())
+                .token(accessToken)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtExpirationMs / 1000)
                 .newUser(newUser)
-                .message(
-                        newUser
-                                ? "User Registered Successfully"
-                                : "Login Successful"
-                )
+                .message(newUser ? "User Registered Successfully" : "Login Successful")
                 .build();
     }
 }

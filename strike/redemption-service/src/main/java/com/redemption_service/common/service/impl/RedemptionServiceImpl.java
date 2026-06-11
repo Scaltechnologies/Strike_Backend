@@ -11,10 +11,12 @@ import com.redemption_service.common.enums.RedemptionStatus;
 import com.redemption_service.common.exception.BadRequestException;
 import com.redemption_service.common.exception.ResourceNotFoundException;
 import com.redemption_service.common.repository.RedemptionRepository;
+import com.redemption_service.common.response.PageResponse;
 import com.redemption_service.common.service.RedemptionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
@@ -100,32 +102,35 @@ public class RedemptionServiceImpl implements RedemptionService {
 
     @Override
     public RedemptionResponse getById(Long id) {
-        RedemptionRecord record = findById(id);
-        return toResponse(record, null);
+        return toResponse(findById(id), null);
     }
 
     @Override
-    public List<RedemptionResponse> getBySubscription(Long subscriptionId) {
-        return redemptionRepository.findBySubscriptionIdOrderByCreatedAtDesc(subscriptionId)
-                .stream().map(r -> toResponse(r, null)).toList();
+    public PageResponse<RedemptionResponse> getBySubscription(Long subscriptionId, int page, int size) {
+        return PageResponse.from(
+                redemptionRepository.findBySubscriptionIdOrderByCreatedAtDesc(subscriptionId, PageRequest.of(page, size))
+                        .map(r -> toResponse(r, null)));
     }
 
     @Override
-    public List<RedemptionResponse> getByStore(Long storeId) {
-        return redemptionRepository.findByStoreIdOrderByCreatedAtDesc(storeId)
-                .stream().map(r -> toResponse(r, null)).toList();
+    public PageResponse<RedemptionResponse> getByStore(Long storeId, int page, int size) {
+        return PageResponse.from(
+                redemptionRepository.findByStoreIdOrderByCreatedAtDesc(storeId, PageRequest.of(page, size))
+                        .map(r -> toResponse(r, null)));
     }
 
     @Override
-    public List<RedemptionResponse> getByUser(Long userId) {
-        return redemptionRepository.findByUserIdOrderByCreatedAtDesc(userId)
-                .stream().map(r -> toResponse(r, null)).toList();
+    public PageResponse<RedemptionResponse> getByUser(Long userId, int page, int size) {
+        return PageResponse.from(
+                redemptionRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size))
+                        .map(r -> toResponse(r, null)));
     }
 
     @Override
-    public List<RedemptionResponse> getAll() {
-        return redemptionRepository.findAll().stream()
-                .map(r -> toResponse(r, null)).toList();
+    public PageResponse<RedemptionResponse> getAll(int page, int size) {
+        return PageResponse.from(
+                redemptionRepository.findAll(PageRequest.of(page, size))
+                        .map(r -> toResponse(r, null)));
     }
 
     private void sendRedemptionNotification(Long userId, Long storeId, BigDecimal total, BigDecimal remaining) {

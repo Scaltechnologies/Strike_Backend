@@ -16,7 +16,8 @@ public class AdminJwtUtil {
     @Value("${jwt.secret}")
     private String secret;
 
-    private static final long EXPIRY_MS = 24 * 60 * 60 * 1000L; // 24 hours
+    @Value("${jwt.expiration:3600000}")
+    private long expirationMs;
 
     public String generateToken(Long adminId, String email, String role) {
         Key key = Keys.hmacShaKeyFor(secret.getBytes());
@@ -26,9 +27,13 @@ public class AdminJwtUtil {
                 .claim("role", role)
                 .claim("type", "ADMIN")
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + EXPIRY_MS))
+                .setExpiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(key, SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public long getExpirationMs() {
+        return expirationMs;
     }
 
     public Claims validateAndGetClaims(String token) {

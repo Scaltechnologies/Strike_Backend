@@ -10,7 +10,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class VendorAuthResponse {
-    private String token;
+    private String token;         // access token (kept for backward compatibility)
+    private String refreshToken;
+    private long expiresIn;       // access token TTL in seconds
     private Long vendorId;
     private String hotelName;
     private String mobileNumber;

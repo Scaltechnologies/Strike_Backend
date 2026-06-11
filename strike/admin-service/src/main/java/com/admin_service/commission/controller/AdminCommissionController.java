@@ -2,12 +2,12 @@ package com.admin_service.commission.controller;
 
 import com.admin_service.commission.dto.CommissionRecordResponse;
 import com.admin_service.commission.service.CommissionService;
+import com.admin_service.common.response.PageResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,18 +19,25 @@ public class AdminCommissionController {
     private final CommissionService commissionService;
 
     @GetMapping
-    public List<CommissionRecordResponse> getAll() {
-        return commissionService.getAll();
+    public PageResponse<CommissionRecordResponse> getAll(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return commissionService.getAll(page, size);
     }
 
     @GetMapping("/pending")
-    public List<CommissionRecordResponse> getPending() {
-        return commissionService.getPending();
+    public PageResponse<CommissionRecordResponse> getPending(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return commissionService.getPending(page, size);
     }
 
     @GetMapping("/vendor/{vendorId}")
-    public List<CommissionRecordResponse> getByVendor(@PathVariable Long vendorId) {
-        return commissionService.getByVendor(vendorId);
+    public PageResponse<CommissionRecordResponse> getByVendor(
+            @PathVariable Long vendorId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return commissionService.getByVendor(vendorId, page, size);
     }
 
     @GetMapping("/stats")

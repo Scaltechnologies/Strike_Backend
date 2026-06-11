@@ -6,6 +6,7 @@ import com.admin_service.vendor.entity.VendorRecord;
 import com.admin_service.vendor.repository.VendorRecordRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -43,13 +44,13 @@ public class AdminAnalyticsController {
     public Map<String, Object> overview() {
         Map<String, Object> result = new LinkedHashMap<>();
 
-        result.put("totalUsers", safeCount(authServiceUrl + "/internal/users"));
+        result.put("totalUsers", safeLong(authServiceUrl + "/internal/users/count"));
 
         Map<String, Object> vendorBreakdown = new LinkedHashMap<>();
-        vendorBreakdown.put("total", vendorRecordRepository.count());
-        vendorBreakdown.put("active", vendorRecordRepository.findByStatus("ACTIVE").size());
-        vendorBreakdown.put("pending", vendorRecordRepository.findByStatus("PENDING").size());
-        vendorBreakdown.put("suspended", vendorRecordRepository.findByStatus("SUSPENDED").size());
+        vendorBreakdown.put("total",     vendorRecordRepository.count());
+        vendorBreakdown.put("active",    vendorRecordRepository.countByStatus("ACTIVE"));
+        vendorBreakdown.put("pending",   vendorRecordRepository.countByStatus("PENDING"));
+        vendorBreakdown.put("suspended", vendorRecordRepository.countByStatus("SUSPENDED"));
         result.put("vendors", vendorBreakdown);
 
         result.put("totalSubscriptions", commissionRecordRepository.count());
@@ -58,7 +59,7 @@ public class AdminAnalyticsController {
                 commissionRecordRepository.sumCommissionByStatus("PENDING")
                         .add(commissionRecordRepository.sumCommissionByStatus("SETTLED")));
         result.put("pendingCommission", commissionRecordRepository.sumCommissionByStatus("PENDING"));
-        result.put("totalRedemptions", safeCount(redemptionServiceUrl + "/api/admin/redemptions/all"));
+        result.put("totalRedemptions", safeStatsField(redemptionServiceUrl + "/api/admin/redemptions/stats", "totalRedemptions"));
 
         return result;
     }
@@ -101,7 +102,7 @@ public class AdminAnalyticsController {
 
     @GetMapping("/vendor-performance")
     public List<Map<String, Object>> vendorPerformance() {
-        List<VendorRecord> vendors = vendorRecordRepository.findByStatus("ACTIVE");
+        List<VendorRecord> vendors = vendorRecordRepository.findByStatus("ACTIVE", Pageable.unpaged()).getContent();
         List<Map<String, Object>> result = new ArrayList<>();
 
         for (VendorRecord vendor : vendors) {
@@ -109,22 +110,15 @@ public class AdminAnalyticsController {
             entry.put("vendorId", vendor.getVendorId());
             entry.put("hotelName", vendor.getHotelName());
             entry.put("commissionRate", vendor.getCommissionRate());
-
-            BigDecimal totalRevenue = commissionRecordRepository
-                    .sumCommissionByVendor(vendor.getVendorId());
-            long subscriptionCount = commissionRecordRepository
-                    .findByVendorId(vendor.getVendorId()).size();
-
             entry.put("totalSubscriptionRevenue",
-                    commissionRecordRepository.findByVendorId(vendor.getVendorId())
-                            .stream().map(CommissionRecord::getSubscriptionAmount)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add));
-            entry.put("totalCommission", totalRevenue);
-            entry.put("subscriptionCount", subscriptionCount);
+                    commissionRecordRepository.sumSubscriptionAmountByVendor(vendor.getVendorId()));
+            entry.put("totalCommission",
+                    commissionRecordRepository.sumCommissionByVendor(vendor.getVendorId()));
+            entry.put("subscriptionCount",
+                    commissionRecordRepository.countByVendorId(vendor.getVendorId()));
             result.add(entry);
         }
 
-        // Sort by commission (descending) = most valuable vendors first
         result.sort((a, b) -> {
             BigDecimal ca = (BigDecimal) a.get("totalCommission");
             BigDecimal cb = (BigDecimal) b.get("totalCommission");
@@ -140,23 +134,22 @@ public class AdminAnalyticsController {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("totalPending", commissionRecordRepository.sumCommissionByStatus("PENDING"));
         result.put("totalSettled", commissionRecordRepository.sumCommissionByStatus("SETTLED"));
-        result.put("pendingCount", commissionRecordRepository.findByStatus("PENDING").size());
-        result.put("settledCount", commissionRecordRepository.findByStatus("SETTLED").size());
+        result.put("pendingCount", commissionRecordRepository.countByStatus("PENDING"));
+        result.put("settledCount", commissionRecordRepository.countByStatus("SETTLED"));
 
-        // Per-vendor commission breakdown
-        List<VendorRecord> vendors = vendorRecordRepository.findAll();
+        List<VendorRecord> vendors = vendorRecordRepository.findAll(Pageable.unpaged()).getContent();
         List<Map<String, Object>> vendorBreakdown = vendors.stream()
-                .filter(v -> !commissionRecordRepository.findByVendorId(v.getVendorId()).isEmpty())
+                .filter(v -> commissionRecordRepository.countByVendorId(v.getVendorId()) > 0)
                 .map(v -> {
                     Map<String, Object> m = new LinkedHashMap<>();
                     m.put("vendorId", v.getVendorId());
                     m.put("hotelName", v.getHotelName());
                     m.put("commissionRate", v.getCommissionRate());
                     m.put("totalCommission", commissionRecordRepository.sumCommissionByVendor(v.getVendorId()));
-                    m.put("pendingCommission", commissionRecordRepository
-                            .findByVendorIdAndStatus(v.getVendorId(), "PENDING")
-                            .stream().map(CommissionRecord::getCommissionAmount)
-                            .reduce(BigDecimal.ZERO, BigDecimal::add));
+                    m.put("pendingCommission",
+                            commissionRecordRepository.findByVendorIdAndStatus(v.getVendorId(), "PENDING")
+                                    .stream().map(CommissionRecord::getCommissionAmount)
+                                    .reduce(BigDecimal.ZERO, BigDecimal::add));
                     return m;
                 })
                 .collect(Collectors.toList());
@@ -171,19 +164,12 @@ public class AdminAnalyticsController {
     public Map<String, Object> orderAnalytics() {
         Map<String, Object> result = new LinkedHashMap<>();
         try {
-            Object allRedemptions = restTemplate.getForObject(
-                    redemptionServiceUrl + "/api/admin/redemptions/all", Object.class);
-            List<Map<String, Object>> redemptions = extractList(allRedemptions);
-            result.put("totalOrders", redemptions.size());
-            result.put("totalOrderAmount", sumField(redemptions, "totalAmount"));
-
-            // Group by store
-            Map<Object, Long> byStore = redemptions.stream()
-                    .collect(Collectors.groupingBy(
-                            r -> r.getOrDefault("storeId", "unknown"),
-                            Collectors.counting()));
-            result.put("ordersByStore", byStore);
-
+            Object statsData = restTemplate.getForObject(
+                    redemptionServiceUrl + "/api/admin/redemptions/stats", Object.class);
+            if (statsData instanceof Map<?, ?> stats) {
+                result.put("totalOrders", stats.get("totalRedemptions"));
+                result.put("totalOrderAmount", stats.get("totalAmount"));
+            }
         } catch (Exception e) {
             result.put("error", "Could not fetch redemption data");
         }
@@ -192,34 +178,20 @@ public class AdminAnalyticsController {
 
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    @SuppressWarnings("unchecked")
-    private int safeCount(String url) {
+    private long safeLong(String url) {
         try {
             Object data = restTemplate.getForObject(url, Object.class);
-            if (data instanceof List<?> list) return list.size();
-            if (data instanceof Map<?, ?> map) {
-                Object inner = map.get("data");
-                if (inner instanceof List<?> list) return list.size();
-            }
+            if (data instanceof Number n) return n.longValue();
         } catch (Exception ignored) {}
-        return 0;
+        return 0L;
     }
 
     @SuppressWarnings("unchecked")
-    private List<Map<String, Object>> extractList(Object data) {
-        if (data instanceof List<?> list) return (List<Map<String, Object>>) list;
-        if (data instanceof Map<?, ?> map) {
-            Object inner = map.get("data");
-            if (inner instanceof List<?> list) return (List<Map<String, Object>>) list;
-        }
-        return List.of();
-    }
-
-    private BigDecimal sumField(List<Map<String, Object>> list, String field) {
-        return list.stream()
-                .map(item -> item.get(field))
-                .filter(v -> v instanceof Number)
-                .map(v -> new BigDecimal(v.toString()))
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    private Object safeStatsField(String url, String field) {
+        try {
+            Object data = restTemplate.getForObject(url, Object.class);
+            if (data instanceof Map<?, ?> map) return map.get(field);
+        } catch (Exception ignored) {}
+        return 0;
     }
 }

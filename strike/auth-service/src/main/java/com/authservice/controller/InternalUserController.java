@@ -1,13 +1,13 @@
 package com.authservice.controller;
 
+import com.authservice.common.response.PageResponse;
 import com.authservice.user.dto.UserAuthResponse;
 import com.authservice.user.entity.UserAuth;
 import com.authservice.user.repository.UserAuthRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/internal/users")
@@ -17,10 +17,17 @@ public class InternalUserController {
     private final UserAuthRepository userAuthRepository;
 
     @GetMapping
-    public List<UserAuthResponse> getAllUsers() {
-        return userAuthRepository.findAll().stream()
-                .map(this::toResponse)
-                .toList();
+    public PageResponse<UserAuthResponse> getAllUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return PageResponse.from(
+                userAuthRepository.findAll(PageRequest.of(page, size))
+                        .map(this::toResponse));
+    }
+
+    @GetMapping("/count")
+    public long countUsers() {
+        return userAuthRepository.count();
     }
 
     @GetMapping("/{userId}")

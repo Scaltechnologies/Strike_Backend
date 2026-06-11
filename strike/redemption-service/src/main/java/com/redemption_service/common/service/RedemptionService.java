@@ -2,14 +2,13 @@ package com.redemption_service.common.service;
 
 import com.redemption_service.common.dto.RedemptionRequest;
 import com.redemption_service.common.dto.RedemptionResponse;
-
-import java.util.List;
+import com.redemption_service.common.response.PageResponse;
 
 public interface RedemptionService {
     RedemptionResponse redeem(RedemptionRequest request);
     RedemptionResponse getById(Long id);
-    List<RedemptionResponse> getBySubscription(Long subscriptionId);
-    List<RedemptionResponse> getByStore(Long storeId);
-    List<RedemptionResponse> getByUser(Long userId);
-    List<RedemptionResponse> getAll();
+    PageResponse<RedemptionResponse> getBySubscription(Long subscriptionId, int page, int size);
+    PageResponse<RedemptionResponse> getByStore(Long storeId, int page, int size);
+    PageResponse<RedemptionResponse> getByUser(Long userId, int page, int size);
+    PageResponse<RedemptionResponse> getAll(int page, int size);
 }

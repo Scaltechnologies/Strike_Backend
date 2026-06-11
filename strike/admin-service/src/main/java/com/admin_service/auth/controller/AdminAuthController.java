@@ -2,7 +2,11 @@ package com.admin_service.auth.controller;
 
 import com.admin_service.auth.dto.*;
 import com.admin_service.auth.entity.Admin;
+import com.admin_service.auth.entity.AdminRefreshToken;
+import com.admin_service.auth.repository.AdminRepository;
 import com.admin_service.auth.service.AdminAuthService;
+import com.admin_service.auth.service.AdminRefreshTokenService;
+import com.admin_service.config.AdminJwtUtil;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -18,12 +22,39 @@ import java.util.Map;
 public class AdminAuthController {
 
     private final AdminAuthService adminAuthService;
+    private final AdminRefreshTokenService refreshTokenService;
+    private final AdminJwtUtil jwtUtil;
+    private final AdminRepository adminRepository;
 
     // ── Public ───────────────────────────────────────────────────────────────
 
     @PostMapping("/login")
     public ResponseEntity<AdminLoginResponse> login(@Valid @RequestBody AdminLoginRequest request) {
         return ResponseEntity.ok(adminAuthService.login(request));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<Map<String, Object>> refresh(@Valid @RequestBody AdminRefreshRequest request) {
+        AdminRefreshToken rt = refreshTokenService.validate(request.getRefreshToken());
+        Admin admin = adminRepository.findById(rt.getAdminId())
+                .orElseThrow(() -> new RuntimeException("Admin not found"));
+        if (!Boolean.TRUE.equals(admin.getActive())) {
+            refreshTokenService.revoke(request.getRefreshToken());
+            throw new RuntimeException("Account is deactivated.");
+        }
+        String newAccessToken = jwtUtil.generateToken(admin.getId(), admin.getEmail(), admin.getRole());
+        String newRefreshToken = refreshTokenService.create(admin.getId());
+        return ResponseEntity.ok(Map.of(
+                "token", newAccessToken,
+                "refreshToken", newRefreshToken,
+                "expiresIn", jwtUtil.getExpirationMs() / 1000
+        ));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, String>> logout(@Valid @RequestBody AdminRefreshRequest request) {
+        refreshTokenService.revoke(request.getRefreshToken());
+        return ResponseEntity.ok(Map.of("message", "Logged out successfully"));
     }
 
     @PostMapping("/setup")

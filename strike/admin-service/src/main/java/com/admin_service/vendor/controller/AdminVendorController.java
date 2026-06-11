@@ -1,17 +1,18 @@
 package com.admin_service.vendor.controller;
 
+import com.admin_service.common.response.PageResponse;
 import com.admin_service.vendor.entity.VendorRecord;
 import com.admin_service.vendor.repository.VendorRecordRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -45,28 +46,38 @@ public class AdminVendorController {
     // ── Vendor Listing ───────────────────────────────────────────────────────
 
     @GetMapping
-    public List<VendorRecord> getAllVendors() {
-        return vendorRecordRepository.findAll();
+    public PageResponse<VendorRecord> getAllVendors(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return PageResponse.from(vendorRecordRepository.findAll(PageRequest.of(page, size)));
     }
 
     @GetMapping("/pending")
-    public List<VendorRecord> getPendingVendors() {
-        return vendorRecordRepository.findByStatus("PENDING");
+    public PageResponse<VendorRecord> getPendingVendors(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return PageResponse.from(vendorRecordRepository.findByStatus("PENDING", PageRequest.of(page, size)));
     }
 
     @GetMapping("/active")
-    public List<VendorRecord> getActiveVendors() {
-        return vendorRecordRepository.findByStatus("ACTIVE");
+    public PageResponse<VendorRecord> getActiveVendors(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return PageResponse.from(vendorRecordRepository.findByStatus("ACTIVE", PageRequest.of(page, size)));
     }
 
     @GetMapping("/suspended")
-    public List<VendorRecord> getSuspendedVendors() {
-        return vendorRecordRepository.findByStatus("SUSPENDED");
+    public PageResponse<VendorRecord> getSuspendedVendors(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return PageResponse.from(vendorRecordRepository.findByStatus("SUSPENDED", PageRequest.of(page, size)));
     }
 
     @GetMapping("/rejected")
-    public List<VendorRecord> getRejectedVendors() {
-        return vendorRecordRepository.findByStatus("REJECTED");
+    public PageResponse<VendorRecord> getRejectedVendors(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return PageResponse.from(vendorRecordRepository.findByStatus("REJECTED", PageRequest.of(page, size)));
     }
 
     @GetMapping("/{vendorId}")
