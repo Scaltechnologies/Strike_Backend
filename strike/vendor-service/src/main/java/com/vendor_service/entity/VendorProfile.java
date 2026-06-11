@@ -2,6 +2,10 @@ package com.vendor_service.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "vendor_profiles")
@@ -16,6 +20,7 @@ public class VendorProfile {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private Long vendorId;
 
     @Column(nullable = false)
@@ -23,8 +28,9 @@ public class VendorProfile {
 
     private String ownerName;
 
-    @Column(unique = true)
     private String mobile;
+
+    private String email;
 
     private String address;
 
@@ -34,4 +40,10 @@ public class VendorProfile {
     private String description;
 
     private String logoUrl;
+
+    @CreationTimestamp
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    private LocalDateTime updatedAt;
 }

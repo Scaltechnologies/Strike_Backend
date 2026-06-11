@@ -1,0 +1,93 @@
+package com.authservice.user.service;
+
+import com.authservice.security.JwtUtil;
+import com.authservice.service.OtpService;
+import com.authservice.user.dto.AuthResponse;
+import com.authservice.user.dto.SendOtpRequest;
+import com.authservice.user.dto.VerifyOtpRequest;
+import com.authservice.user.entity.UserAuth;
+import com.authservice.user.repository.UserAuthRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class UserAuthServiceImpl implements UserAuthService {
+
+    private final UserAuthRepository userAuthRepository;
+    private final OtpService otpService;
+    private final JwtUtil jwtUtil;
+
+    @Override
+    public String sendOtp(SendOtpRequest request) {
+        userAuthRepository.findByMobileNumber(request.getMobileNumber())
+                .ifPresent(user -> {
+                    if (Boolean.TRUE.equals(user.getBanned())) {
+                        throw new RuntimeException("Account is banned. Please contact support.");
+                    }
+                });
+        otpService.generateOtp(request.getMobileNumber());
+        return "OTP Sent Successfully";
+    }
+
+    @Override
+    public AuthResponse verifyOtp(
+            VerifyOtpRequest request
+    ) {
+
+        boolean valid = otpService.verifyOtp(
+                request.getMobileNumber(),
+                request.getOtp()
+        );
+
+        if (!valid) {
+            throw new RuntimeException("Invalid OTP");
+        }
+
+        UserAuth user = userAuthRepository
+                .findByMobileNumber(request.getMobileNumber())
+                .orElse(null);
+
+        boolean newUser = false;
+
+        if (user != null && Boolean.TRUE.equals(user.getBanned())) {
+            throw new RuntimeException("Account is banned. Please contact support.");
+        }
+
+        if (user == null) {
+
+            user = UserAuth.builder()
+                    .mobileNumber(
+                            request.getMobileNumber()
+                    )
+                    .verified(true)
+                    .build();
+
+            user = userAuthRepository.save(user);
+
+            newUser = true;
+
+        } else {
+
+            user.setVerified(true);
+
+            user = userAuthRepository.save(user);
+        }
+
+        String token = jwtUtil.generateToken(user.getId(), user.getMobileNumber(), "USER");
+
+        return AuthResponse.builder()
+                .userId(user.getId())
+                .mobileNumber(
+                        user.getMobileNumber()
+                )
+                .token(token)
+                .newUser(newUser)
+                .message(
+                        newUser
+                                ? "User Registered Successfully"
+                                : "Login Successful"
+                )
+                .build();
+    }
+}

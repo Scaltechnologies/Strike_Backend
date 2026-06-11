@@ -1,0 +1,192 @@
+version: '3.9'
+
+services:
+
+  # ── Database ──────────────────────────────────────────────────────────────────
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: strike-postgres
+    environment:
+      POSTGRES_DB: strike_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d strike_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ── Auth ──────────────────────────────────────────────────────────────────────
+
+  auth-service:
+    build: ./auth-service
+    container_name: strike-auth
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}},
+        "services":{"vendor-url":"http://vendor-service:8083",
+        "admin-url":"http://admin-service:8087",
+        "notification-url":"http://notification-service:8088"}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── User ──────────────────────────────────────────────────────────────────────
+
+  user-service:
+    build: ./user-service
+    container_name: strike-user
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}},
+        "services":{"vendor-url":"http://vendor-service:8083",
+        "card-url":"http://card-service:8084",
+        "redemption-url":"http://redemption-service:8085",
+        "ledger-url":"http://ledger-service:8086"}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Vendor ────────────────────────────────────────────────────────────────────
+
+  vendor-service:
+    build: ./vendor-service
+    container_name: strike-vendor
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}},
+        "services":{"card-url":"http://card-service:8084",
+        "redemption-url":"http://redemption-service:8085",
+        "ledger-url":"http://ledger-service:8086",
+        "admin-url":"http://admin-service:8087"}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Card ──────────────────────────────────────────────────────────────────────
+
+  card-service:
+    build: ./card-service
+    container_name: strike-card
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}},
+        "services":{"ledger-url":"http://ledger-service:8086",
+        "admin-url":"http://admin-service:8087",
+        "notification-url":"http://notification-service:8088"}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Redemption ────────────────────────────────────────────────────────────────
+
+  redemption-service:
+    build: ./redemption-service
+    container_name: strike-redemption
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}},
+        "services":{"card-url":"http://card-service:8084",
+        "vendor-url":"http://vendor-service:8083",
+        "ledger-url":"http://ledger-service:8086",
+        "notification-url":"http://notification-service:8088"}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Ledger ────────────────────────────────────────────────────────────────────
+
+  ledger-service:
+    build: ./ledger-service
+    container_name: strike-ledger
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Admin ─────────────────────────────────────────────────────────────────────
+
+  admin-service:
+    build: ./admin-service
+    container_name: strike-admin
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}},
+        "services":{"auth-url":"http://auth-service:8081",
+        "user-url":"http://user-service:8082",
+        "vendor-url":"http://vendor-service:8083",
+        "card-url":"http://card-service:8084",
+        "redemption-url":"http://redemption-service:8085",
+        "ledger-url":"http://ledger-service:8086",
+        "notification-url":"http://notification-service:8088"}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Notification ──────────────────────────────────────────────────────────────
+
+  notification-service:
+    build: ./notification-service
+    container_name: strike-notification
+    ports:
+      - "8088:8088"
+    environment:
+      SPRING_APPLICATION_JSON: >-
+        {"spring":{"datasource":{"url":"jdbc:postgresql://postgres:5432/strike_db"}},
+        "services":{"auth-url":"http://auth-service:8081"}}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: on-failure
+
+  # ── Gateway ───────────────────────────────────────────────────────────────────
+
+  strike-gateway:
+    build: ./strike-gateway
+    container_name: strike-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+    depends_on:
+      - auth-service
+      - user-service
+      - vendor-service
+      - card-service
+      - redemption-service
+      - ledger-service
+      - admin-service
+      - notification-service
+    restart: on-failure
+
+volumes:
+  postgres_data:

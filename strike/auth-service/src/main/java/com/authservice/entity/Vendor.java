@@ -23,7 +23,7 @@ public class Vendor {
 
     private String address;
 
-    @Column(name = "mobile_number", unique = true)
+    @Column(name = "mobile_number")
     private String mobileNumber;
 
     private String email;

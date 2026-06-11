@@ -1,0 +1,23 @@
+server:
+  port: 8085
+
+spring:
+  application:
+    name: redemption-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/strike_db
+    username: postgres
+    password: postgres123
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+services:
+  card-url: http://localhost:8084
+  vendor-url: http://localhost:8083
+  ledger-url: http://localhost:8086
+jwt:
+  secret: STRIKE_SUPER_SECRET_KEY_2026_STRIKE_PLATFORM

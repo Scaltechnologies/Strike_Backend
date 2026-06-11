@@ -33,3 +33,8 @@ spring:
 jwt:
   secret: STRIKE_SUPER_SECRET_KEY_2026_STRIKE_PLATFORM
   expiration: 86400000
+
+services:
+  vendor-url: http://localhost:8083
+  admin-url: http://localhost:8087
+  notification-url: http://localhost:8088

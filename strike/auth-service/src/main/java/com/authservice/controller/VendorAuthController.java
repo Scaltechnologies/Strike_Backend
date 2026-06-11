@@ -1,46 +1,51 @@
-
 package com.authservice.controller;
 
 import com.authservice.dto.RegisterVendorRequest;
+import com.authservice.dto.VendorAuthResponse;
 import com.authservice.dto.VerifyOtpRequest;
 import com.authservice.dto.VendorLoginRequest;
 import com.authservice.service.VendorAuthService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/auth/vendor")
+@RequestMapping("/api/auth/vendor")
 @RequiredArgsConstructor
 public class VendorAuthController {
 
     private final VendorAuthService vendorAuthService;
 
-    // Register vendor and send OTP
     @PostMapping("/register")
-    public ResponseEntity<?> registerVendor(@RequestBody RegisterVendorRequest request) {
-
-        vendorAuthService.registerVendor(request);
-
-        return ResponseEntity.ok("OTP sent successfully for registration");
+    public ResponseEntity<?> registerVendor(@Valid @RequestBody RegisterVendorRequest request) {
+        try {
+            vendorAuthService.registerVendor(request);
+            return ResponseEntity.ok("Registration successful. Check server console for OTP.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
+        }
     }
 
-    // Login vendor and send OTP
     @PostMapping("/login")
-    public ResponseEntity<?> loginVendor(@RequestBody VendorLoginRequest request) {
-
-        vendorAuthService.sendLoginOtp(request.getMobile());
-
-        return ResponseEntity.ok("OTP sent successfully for login");
+    public ResponseEntity<?> loginVendor(@Valid @RequestBody VendorLoginRequest request) {
+        try {
+            vendorAuthService.sendLoginOtp(request.getMobileNumber());
+            return ResponseEntity.ok("OTP sent. Check server console for OTP.");
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(e.getMessage());
+        }
     }
 
-    // Verify OTP and generate JWT
     @PostMapping("/verify")
-    public ResponseEntity<?> verifyOtp(@RequestBody VerifyOtpRequest request) {
-
-        String token = vendorAuthService
-                .verifyOtp(request.getMobileNumber(), request.getOtp());
-
-        return ResponseEntity.ok(token);
+    public ResponseEntity<VendorAuthResponse> verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        try {
+            VendorAuthResponse response = vendorAuthService.verifyOtp(
+                    request.getMobileNumber(), request.getOtp());
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        }
     }
 }

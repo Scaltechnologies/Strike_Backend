@@ -3,59 +3,60 @@ server:
 
 spring:
   application:
-    name: api-gateway
+    name: strike-gateway
 
   cloud:
     gateway:
       server:
         webflux:
+          globalcors:
+            corsConfigurations:
+              '[/**]':
+                allowedOriginPatterns: "*"
+                allowedMethods:
+                  - GET
+                  - POST
+                  - PUT
+                  - DELETE
+                  - OPTIONS
+                  - PATCH
+                allowedHeaders: "*"
+                allowCredentials: false
           routes:
             - id: auth-service
               uri: http://localhost:8081
               predicates:
                 - Path=/api/auth/**
-              filters:
-                - StripPrefix=2
 
             - id: user-service
               uri: http://localhost:8082
               predicates:
                 - Path=/api/user/**
-              filters:
-                - StripPrefix=2
 
             - id: vendor-service
               uri: http://localhost:8083
               predicates:
-                - Path=/api/vendor/**
+                - Path=/api/vendor/**,/api/stores/**,/api/menu/**,/api/dashboard/**,/api/analytics/**
 
             - id: card-service
               uri: http://localhost:8084
               predicates:
-                - Path=/api/card/**
-              filters:
-                - StripPrefix=2
+                - Path=/api/cards/**,/api/subscriptions/**
 
             - id: redemption-service
               uri: http://localhost:8085
               predicates:
-                - Path=/api/redemption/**
-              filters:
-                - StripPrefix=2
+                - Path=/api/redemptions/**
 
             - id: ledger-service
               uri: http://localhost:8086
               predicates:
                 - Path=/api/ledger/**
-              filters:
-                - StripPrefix=2
 
             - id: admin-service
               uri: http://localhost:8087
               predicates:
                 - Path=/api/admin/**
-              filters:
-                - StripPrefix=2
 
 jwt:
   secret: STRIKE_SUPER_SECRET_KEY_2026_STRIKE_PLATFORM

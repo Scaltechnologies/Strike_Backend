@@ -2,7 +2,38 @@ server:
   port: 8085
 
 spring:
+  application:
+    name: redemption-service
+
   datasource:
-    url: jdbc:postgresql://localhost:5432/strike
-    username: strike_user
+    url: jdbc:postgresql://localhost:5432/strike_db
+    username: postgres
     password: postgres123
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 2
+      idle-timeout: 30000
+      max-lifetime: 1800000
+      connection-timeout: 20000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  jackson:
+    time-zone: UTC
+
+jwt:
+  secret: STRIKE_SUPER_SECRET_KEY_2026_STRIKE_PLATFORM
+
+services:
+  card-url: http://localhost:8084
+  vendor-url: http://localhost:8083
+  ledger-url: http://localhost:8086
+  notification-url: http://localhost:8088

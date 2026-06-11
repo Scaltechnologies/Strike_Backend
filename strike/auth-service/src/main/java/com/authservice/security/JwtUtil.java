@@ -27,17 +27,18 @@ public class JwtUtil {
     }
 
     public String generateToken(
-            Long vendorId,
-            String mobile
+            Long userId,
+            String mobile,
+            String role
     ) {
 
         return Jwts.builder()
 
                 .setSubject(
-                        String.valueOf(vendorId)
+                        String.valueOf(userId)
                 )
 
-                .claim("role", "VENDOR")
+                .claim("role", role)
                 .claim("mobile", mobile)
 
                 .setIssuedAt(new Date())
@@ -66,11 +67,24 @@ public class JwtUtil {
                 .getBody();
     }
 
-    public Long extractVendorId(String token) {
+    public Long extractUserId(String token) {
+        return Long.valueOf(extractClaims(token).getSubject());
+    }
 
-        return Long.valueOf(
-                extractClaims(token)
-                        .getSubject()
-        );
+    public String extractRole(String token) {
+        return (String) extractClaims(token).get("role");
+    }
+
+    public boolean isTokenExpired(String token) {
+        return extractClaims(token).getExpiration().before(new Date());
+    }
+
+    public boolean validateToken(String token) {
+        try {
+            extractClaims(token);
+            return !isTokenExpired(token);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }
