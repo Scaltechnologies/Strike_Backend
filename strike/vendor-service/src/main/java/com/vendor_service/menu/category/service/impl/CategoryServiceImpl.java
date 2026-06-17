@@ -1,5 +1,7 @@
 package com.vendor_service.menu.category.service.impl;
 
+import com.vendor_service.common.client.CardServiceClient;
+import com.vendor_service.common.exception.BadRequestException;
 import com.vendor_service.common.exception.ResourceNotFoundException;
 import com.vendor_service.menu.category.dto.request.CreateCategoryRequest;
 import com.vendor_service.menu.category.dto.request.UpdateCategoryRequest;
@@ -21,6 +23,7 @@ public class CategoryServiceImpl implements CategoryService {
 
     private final CategoryRepository categoryRepository;
     private final StoreRepository storeRepository;
+    private final CardServiceClient cardServiceClient;
 
     @Override
     public CategoryResponse createCategory(Long vendorId, CreateCategoryRequest request) {
@@ -62,6 +65,20 @@ public class CategoryServiceImpl implements CategoryService {
     public void deleteCategory(Long vendorId, Long categoryId) {
         Long storeId = resolveStoreId(vendorId);
         Category category = findByIdAndStore(categoryId, storeId);
+
+        try {
+            if (cardServiceClient.isCategoryMappedToActiveCard(categoryId)) {
+                throw new BadRequestException(
+                        "This menu category is mapped to one or more active cards. " +
+                        "Remove it from all cards before deleting.");
+            }
+        } catch (BadRequestException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new BadRequestException(
+                    "Unable to verify card mappings for this category. Please try again.");
+        }
+
         category.setStatus(CategoryStatus.INACTIVE);
         categoryRepository.save(category);
     }

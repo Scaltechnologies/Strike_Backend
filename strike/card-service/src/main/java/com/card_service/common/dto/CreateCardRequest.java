@@ -4,6 +4,7 @@ import jakarta.validation.constraints.*;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class CreateCardRequest {
@@ -26,4 +27,11 @@ public class CreateCardRequest {
     private Integer validityInDays;
 
     private String imageUrl;
+
+    @NotNull(message = "At least one menu category must be selected")
+    @Size(min = 1, message = "At least one menu category must be selected")
+    private List<Long> categoryIds;
+
+    @Size(min = 1, message = "If provided, eligibleMenuItemIds must contain at least one item")
+    private List<Long> eligibleMenuItemIds;
 }

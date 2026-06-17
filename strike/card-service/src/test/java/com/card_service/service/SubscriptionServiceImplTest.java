@@ -177,7 +177,7 @@ class SubscriptionServiceImplTest {
 
         BalanceResponse result = subscriptionService.deductBalance(1L, new BigDecimal("100"));
 
-        assertThat(result.getBalance()).isEqualByComparingTo("500.00");
+        assertThat(result.getWalletBalance()).isEqualByComparingTo("500.00");
         assertThat(sub.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
         verify(subscriptionRepository).save(sub);
     }

@@ -161,15 +161,17 @@ public class VendorAuthService {
 
     private void syncVendorProfile(Vendor vendor) {
         try {
+            java.util.Map<String, Object> body = new java.util.HashMap<>();
+            body.put("vendorId", vendor.getId());
+            body.put("shopName", vendor.getHotelName() != null ? vendor.getHotelName() : "");
+            body.put("mobile", vendor.getMobileNumber() != null ? vendor.getMobileNumber() : "");
+            body.put("address", vendor.getAddress() != null ? vendor.getAddress() : "");
+            body.put("email", vendor.getEmail() != null ? vendor.getEmail() : "");
+            if (vendor.getLatitude() != null) body.put("latitude", vendor.getLatitude());
+            if (vendor.getLongitude() != null) body.put("longitude", vendor.getLongitude());
             restTemplate.postForObject(
                     vendorServiceUrl + "/internal/vendors/" + vendor.getId() + "/init",
-                    Map.of(
-                            "vendorId", vendor.getId(),
-                            "shopName", vendor.getHotelName() != null ? vendor.getHotelName() : "",
-                            "mobile", vendor.getMobileNumber() != null ? vendor.getMobileNumber() : "",
-                            "address", vendor.getAddress() != null ? vendor.getAddress() : "",
-                            "email", vendor.getEmail() != null ? vendor.getEmail() : ""
-                    ),
+                    body,
                     Object.class);
         } catch (Exception e) {
             log.warn("Could not sync vendor profile to vendor-service: {}", e.getMessage());

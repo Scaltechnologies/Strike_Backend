@@ -9,7 +9,7 @@ import org.springframework.web.client.RestTemplate;
 @RestController
 @RequestMapping("/api/admin/redemptions")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
 public class AdminRedemptionsController {
 
     private final RestTemplate restTemplate;

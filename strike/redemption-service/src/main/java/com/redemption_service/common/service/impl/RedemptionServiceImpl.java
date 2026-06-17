@@ -2,6 +2,7 @@ package com.redemption_service.common.service.impl;
 
 import com.redemption_service.common.client.CardServiceClient;
 import com.redemption_service.common.client.LedgerServiceClient;
+import com.redemption_service.common.client.UserServiceClient;
 import com.redemption_service.common.client.VendorServiceClient;
 import com.redemption_service.common.client.VendorServiceClient.MenuItemInfo;
 import com.redemption_service.common.dto.*;
@@ -22,10 +23,13 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -36,69 +40,160 @@ public class RedemptionServiceImpl implements RedemptionService {
     private final CardServiceClient cardServiceClient;
     private final VendorServiceClient vendorServiceClient;
     private final LedgerServiceClient ledgerServiceClient;
+    private final UserServiceClient userServiceClient;
     private final RestTemplate restTemplate;
 
     @Value("${services.notification-url:http://localhost:8088}")
     private String notificationServiceUrl;
 
+    // ── Legacy: vendor-POS direct redemption ─────────────────────────────────
+
     @Override
     @Transactional
-    public RedemptionResponse redeem(RedemptionRequest request) {
-        Map<Long, MenuItemInfo> menuItems = vendorServiceClient.getMenuItems(request.getStoreId());
+    public RedemptionResponse redeem(Long vendorId, RedemptionRequest request) {
+        if (!vendorServiceClient.verifyVendorOwnsStore(vendorId, request.getStoreId())) {
+            throw new BadRequestException("You do not own store " + request.getStoreId());
+        }
 
-        List<RedemptionItem> items = new ArrayList<>();
-        BigDecimal total = BigDecimal.ZERO;
+        SubscriptionRedemptionContext ctx = cardServiceClient.getRedemptionContext(request.getSubscriptionId());
+        validateSubscriptionContext(ctx, request.getStoreId());
 
         RedemptionRecord record = RedemptionRecord.builder()
                 .subscriptionId(request.getSubscriptionId())
-                .userId(request.getUserId())
+                .userId(ctx.getUserId())
                 .storeId(request.getStoreId())
                 .totalAmount(BigDecimal.ZERO)
                 .status(RedemptionStatus.COMPLETED)
-                .items(items)
+                .initiatedBy("VENDOR")
                 .build();
 
-        for (RedemptionItemRequest itemReq : request.getItems()) {
-            MenuItemInfo menuItem = menuItems.get(itemReq.getMenuItemId());
-            if (menuItem == null) {
-                throw new BadRequestException("Menu item not found: " + itemReq.getMenuItemId());
-            }
-            if (!menuItem.storeId().equals(request.getStoreId())) {
-                throw new BadRequestException("Menu item does not belong to this store: " + menuItem.name());
-            }
-
-            BigDecimal itemTotal = menuItem.price().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
-            total = total.add(itemTotal);
-
-            items.add(RedemptionItem.builder()
-                    .redemptionRecord(record)
-                    .menuItemId(menuItem.id())
-                    .menuItemName(menuItem.name())
-                    .quantity(itemReq.getQuantity())
-                    .unitPrice(menuItem.price())
-                    .totalPrice(itemTotal)
-                    .build());
-        }
-
+        BigDecimal total = validateAndPopulateItems(ctx, request.getItems(), request.getStoreId(), record);
         record.setTotalAmount(total);
 
         BigDecimal remainingBalance = cardServiceClient.deductBalance(request.getSubscriptionId(), total);
-
         RedemptionRecord saved = redemptionRepository.save(record);
 
-        try {
-            ledgerServiceClient.recordRedemption(
-                    request.getStoreId(),
-                    request.getUserId(),
-                    request.getSubscriptionId(),
-                    total,
-                    "Redemption #" + saved.getId()
-            );
-        } catch (Exception ignored) {}
+        recordLedger(saved, total);
+        sendNotification("/internal/notify/redemption", Map.of(
+                "userId", ctx.getUserId(),
+                "storeName", "Store #" + request.getStoreId(),
+                "totalAmount", total,
+                "remainingBalance", remainingBalance
+        ));
 
-        sendRedemptionNotification(request.getUserId(), request.getStoreId(), total, remainingBalance);
         return toResponse(saved, remainingBalance);
     }
+
+    // ── Phase 5: user submits request (no balance deduction) ─────────────────
+
+    @Override
+    @Transactional
+    public RedemptionResponse requestRedemption(Long userId, RedemptionRequest request) {
+        SubscriptionRedemptionContext ctx = cardServiceClient.getRedemptionContext(request.getSubscriptionId());
+
+        if (!ctx.getUserId().equals(userId)) {
+            throw new BadRequestException("This subscription does not belong to you.");
+        }
+
+        validateSubscriptionContext(ctx, request.getStoreId());
+
+        if (redemptionRepository.existsBySubscriptionIdAndStatus(
+                request.getSubscriptionId(), RedemptionStatus.PENDING)) {
+            throw new BadRequestException(
+                    "You already have a pending redemption request for this membership. " +
+                    "Please wait for the store to process it.");
+        }
+
+        RedemptionRecord record = RedemptionRecord.builder()
+                .subscriptionId(request.getSubscriptionId())
+                .userId(userId)
+                .storeId(request.getStoreId())
+                .totalAmount(BigDecimal.ZERO)
+                .status(RedemptionStatus.PENDING)
+                .initiatedBy("USER")
+                .build();
+
+        BigDecimal total = validateAndPopulateItems(ctx, request.getItems(), request.getStoreId(), record);
+        record.setTotalAmount(total);
+
+        RedemptionRecord saved = redemptionRepository.save(record);
+        return toResponse(saved, null);
+    }
+
+    // ── Phase 5: vendor approves (balance deducted here) ─────────────────────
+
+    @Override
+    @Transactional
+    public RedemptionResponse approveRedemption(Long vendorId, Long redemptionId) {
+        RedemptionRecord record = findById(redemptionId);
+
+        if (!vendorServiceClient.verifyVendorOwnsStore(vendorId, record.getStoreId())) {
+            throw new BadRequestException("You do not own the store for this redemption request.");
+        }
+        if (record.getStatus() != RedemptionStatus.PENDING) {
+            throw new BadRequestException(
+                    "Only pending requests can be approved. Current status: " + record.getStatus());
+        }
+
+        BigDecimal remainingBalance = cardServiceClient.deductBalance(
+                record.getSubscriptionId(), record.getTotalAmount());
+
+        record.setStatus(RedemptionStatus.COMPLETED);
+        record.setApprovedAt(LocalDateTime.now());
+        RedemptionRecord saved = redemptionRepository.save(record);
+
+        recordLedger(saved, record.getTotalAmount());
+        sendNotification("/internal/notify/redemption", Map.of(
+                "userId", record.getUserId(),
+                "storeName", "Store #" + record.getStoreId(),
+                "totalAmount", record.getTotalAmount(),
+                "remainingBalance", remainingBalance
+        ));
+
+        return toResponse(saved, remainingBalance);
+    }
+
+    // ── Phase 5: vendor rejects (no balance deduction) ────────────────────────
+
+    @Override
+    @Transactional
+    public RedemptionResponse rejectRedemption(Long vendorId, Long redemptionId, String reason) {
+        RedemptionRecord record = findById(redemptionId);
+
+        if (!vendorServiceClient.verifyVendorOwnsStore(vendorId, record.getStoreId())) {
+            throw new BadRequestException("You do not own the store for this redemption request.");
+        }
+        if (record.getStatus() != RedemptionStatus.PENDING) {
+            throw new BadRequestException(
+                    "Only pending requests can be rejected. Current status: " + record.getStatus());
+        }
+
+        record.setStatus(RedemptionStatus.REJECTED);
+        record.setRejectedAt(LocalDateTime.now());
+        record.setFailureReason(reason);
+        RedemptionRecord saved = redemptionRepository.save(record);
+
+        sendNotification("/internal/notify/redemption-rejected", Map.of(
+                "userId", record.getUserId(),
+                "storeName", "Store #" + record.getStoreId(),
+                "reason", reason != null ? reason : ""
+        ));
+
+        return toResponse(saved, null);
+    }
+
+    // ── Phase 5: vendor views pending queue ───────────────────────────────────
+
+    @Override
+    public List<RedemptionQueueResponse> getPendingQueue(Long storeId) {
+        return redemptionRepository
+                .findByStoreIdAndStatusOrderByCreatedAtAsc(storeId, RedemptionStatus.PENDING)
+                .stream()
+                .map(r -> toQueueResponse(r, userServiceClient.getCustomerName(r.getUserId())))
+                .toList();
+    }
+
+    // ── Read ──────────────────────────────────────────────────────────────────
 
     @Override
     public RedemptionResponse getById(Long id) {
@@ -108,7 +203,8 @@ public class RedemptionServiceImpl implements RedemptionService {
     @Override
     public PageResponse<RedemptionResponse> getBySubscription(Long subscriptionId, int page, int size) {
         return PageResponse.from(
-                redemptionRepository.findBySubscriptionIdOrderByCreatedAtDesc(subscriptionId, PageRequest.of(page, size))
+                redemptionRepository.findBySubscriptionIdOrderByCreatedAtDesc(
+                        subscriptionId, PageRequest.of(page, size))
                         .map(r -> toResponse(r, null)));
     }
 
@@ -133,17 +229,110 @@ public class RedemptionServiceImpl implements RedemptionService {
                         .map(r -> toResponse(r, null)));
     }
 
-    private void sendRedemptionNotification(Long userId, Long storeId, BigDecimal total, BigDecimal remaining) {
+    // ── Private helpers ───────────────────────────────────────────────────────
+
+    /**
+     * Validates subscription status and store binding. Shared between redeem() and requestRedemption().
+     */
+    private void validateSubscriptionContext(SubscriptionRedemptionContext ctx, Long requestedStoreId) {
+        if (!"ACTIVE".equals(ctx.getStatus())) {
+            throw new BadRequestException("Subscription is not active. Current status: " + ctx.getStatus());
+        }
+        if (!ctx.getStoreId().equals(requestedStoreId)) {
+            throw new BadRequestException(
+                    "This subscription is not valid at store " + requestedStoreId +
+                    ". It was purchased for store " + ctx.getStoreId() + ".");
+        }
+    }
+
+    /**
+     * Validates each item against category and item-level eligibility, checks stock,
+     * populates record.items in-place, and returns the computed total amount.
+     */
+    private BigDecimal validateAndPopulateItems(
+            SubscriptionRedemptionContext ctx,
+            List<RedemptionItemRequest> itemRequests,
+            Long storeId,
+            RedemptionRecord record) {
+
+        List<Long> eligibleCategoryIds = ctx.getEligibleCategoryIds();
+        if (eligibleCategoryIds == null || eligibleCategoryIds.isEmpty()) {
+            throw new BadRequestException(
+                    "This card has no menu categories configured. Please contact the vendor.");
+        }
+        Set<Long> eligibleCategories = new HashSet<>(eligibleCategoryIds);
+
+        Set<Long> eligibleItemIds =
+                (ctx.getEligibleMenuItemIds() != null && !ctx.getEligibleMenuItemIds().isEmpty())
+                        ? new HashSet<>(ctx.getEligibleMenuItemIds()) : null;
+
+        Map<Long, MenuItemInfo> menuItems = vendorServiceClient.getMenuItems(storeId);
+        if (record.getItems() == null) {
+            record.setItems(new ArrayList<>());
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+
+        for (RedemptionItemRequest itemReq : itemRequests) {
+            MenuItemInfo menuItem = menuItems.get(itemReq.getMenuItemId());
+            if (menuItem == null) {
+                throw new BadRequestException("Menu item not found: " + itemReq.getMenuItemId());
+            }
+            if (!menuItem.storeId().equals(storeId)) {
+                throw new BadRequestException(
+                        "Menu item does not belong to this store: " + menuItem.name());
+            }
+            if (menuItem.categoryId() == null || !eligibleCategories.contains(menuItem.categoryId())) {
+                throw new BadRequestException(
+                        "Item '" + menuItem.name() + "' is not eligible for redemption with this card. " +
+                        "Only items from the card's mapped menu categories can be redeemed.");
+            }
+            if (eligibleItemIds != null && !eligibleItemIds.contains(menuItem.id())) {
+                throw new BadRequestException(
+                        "Item '" + menuItem.name() + "' is not eligible for redemption with this card. " +
+                        "This card is restricted to specific menu items only.");
+            }
+            if ("OUT_OF_STOCK".equals(menuItem.availabilityStatus())) {
+                throw new BadRequestException(
+                        "Item '" + menuItem.name() + "' is currently out of stock and cannot be redeemed.");
+            }
+
+            BigDecimal itemTotal = menuItem.price().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            total = total.add(itemTotal);
+
+            record.getItems().add(RedemptionItem.builder()
+                    .redemptionRecord(record)
+                    .menuItemId(menuItem.id())
+                    .menuItemName(menuItem.name())
+                    .quantity(itemReq.getQuantity())
+                    .unitPrice(menuItem.price())
+                    .totalPrice(itemTotal)
+                    .build());
+        }
+
+        return total;
+    }
+
+    private void recordLedger(RedemptionRecord saved, BigDecimal total) {
         try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("userId", userId);
-            payload.put("storeName", "Store #" + storeId);
-            payload.put("totalAmount", total);
-            payload.put("remainingBalance", remaining);
-            restTemplate.postForObject(
-                    notificationServiceUrl + "/internal/notify/redemption", payload, String.class);
+            ledgerServiceClient.recordRedemption(
+                    saved.getStoreId(),
+                    saved.getUserId(),
+                    saved.getSubscriptionId(),
+                    total,
+                    "Redemption #" + saved.getId()
+            );
         } catch (Exception e) {
-            log.warn("Could not send redemption notification for userId={}: {}", userId, e.getMessage());
+            log.error("Failed to record ledger entry for redemption #{} (subscriptionId={}, amount={}): {}",
+                    saved.getId(), saved.getSubscriptionId(), total, e.getMessage(), e);
+        }
+    }
+
+    private void sendNotification(String path, Map<String, Object> payload) {
+        try {
+            restTemplate.postForObject(notificationServiceUrl + path, payload, String.class);
+        } catch (Exception e) {
+            log.warn("Could not send notification [{}]: {}", path, e.getMessage());
         }
     }
 
@@ -171,6 +360,35 @@ public class RedemptionServiceImpl implements RedemptionService {
                 .totalAmount(record.getTotalAmount())
                 .remainingBalance(remainingBalance)
                 .status(record.getStatus())
+                .initiatedBy(record.getInitiatedBy())
+                .items(itemResponses)
+                .createdAt(record.getCreatedAt())
+                .approvedAt(record.getApprovedAt())
+                .rejectedAt(record.getRejectedAt())
+                .failureReason(record.getFailureReason())
+                .build();
+    }
+
+    private RedemptionQueueResponse toQueueResponse(RedemptionRecord record, String customerName) {
+        List<RedemptionItemResponse> itemResponses = record.getItems().stream()
+                .map(i -> RedemptionItemResponse.builder()
+                        .menuItemId(i.getMenuItemId())
+                        .menuItemName(i.getMenuItemName())
+                        .quantity(i.getQuantity())
+                        .unitPrice(i.getUnitPrice())
+                        .totalPrice(i.getTotalPrice())
+                        .build())
+                .toList();
+
+        return RedemptionQueueResponse.builder()
+                .id(record.getId())
+                .subscriptionId(record.getSubscriptionId())
+                .userId(record.getUserId())
+                .customerName(customerName)
+                .storeId(record.getStoreId())
+                .totalAmount(record.getTotalAmount())
+                .status(record.getStatus())
+                .initiatedBy(record.getInitiatedBy())
                 .items(itemResponses)
                 .createdAt(record.getCreatedAt())
                 .build();

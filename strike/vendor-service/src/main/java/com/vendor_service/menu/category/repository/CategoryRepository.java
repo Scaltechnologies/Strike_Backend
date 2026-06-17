@@ -12,4 +12,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long> {
     List<Category> findByStoreIdAndStatus(Long storeId, CategoryStatus status);
 
     Optional<Category> findByIdAndStoreId(Long id, Long storeId);
+
+    List<Category> findByIdInAndStoreIdAndStatus(List<Long> ids, Long storeId, CategoryStatus status);
+
+    List<Category> findByIdIn(List<Long> ids);
 }

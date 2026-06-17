@@ -19,6 +19,11 @@ public class RedemptionRecord {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // Prevents double-approval under concurrent vendor requests
+    @Version
+    @Column(columnDefinition = "bigint default 0")
+    private Long version;
+
     @Column(nullable = false)
     private Long subscriptionId;
 
@@ -35,7 +40,15 @@ public class RedemptionRecord {
     @Column(nullable = false)
     private RedemptionStatus status;
 
+    // "USER" for user-initiated requests; "VENDOR" for legacy POS-direct redemptions
+    private String initiatedBy;
+
+    // Reused as rejection reason when status = REJECTED
     private String failureReason;
+
+    private LocalDateTime approvedAt;
+
+    private LocalDateTime rejectedAt;
 
     @OneToMany(mappedBy = "redemptionRecord", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default

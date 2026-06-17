@@ -133,7 +133,7 @@ class UserAuthServiceImplTest {
 
         AuthResponse response = userAuthService.verifyOtp(req);
 
-        assertThat(response.isNewUser()).isTrue();
+        assertThat(response.getNewUser()).isTrue();
         assertThat(response.getToken()).isEqualTo("access.token.here");
         assertThat(response.getRefreshToken()).isEqualTo("refresh-uuid");
         assertThat(response.getExpiresIn()).isEqualTo(3600L);
@@ -158,7 +158,7 @@ class UserAuthServiceImplTest {
 
         AuthResponse response = userAuthService.verifyOtp(req);
 
-        assertThat(response.isNewUser()).isFalse();
+        assertThat(response.getNewUser()).isFalse();
         assertThat(response.getMessage()).contains("Login");
     }
 }

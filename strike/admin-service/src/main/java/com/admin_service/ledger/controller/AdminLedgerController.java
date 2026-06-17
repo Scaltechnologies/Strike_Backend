@@ -9,7 +9,7 @@ import org.springframework.web.client.RestTemplate;
 @RestController
 @RequestMapping("/api/admin/ledger")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
 public class AdminLedgerController {
 
     private final RestTemplate restTemplate;

@@ -41,6 +41,8 @@ public class InternalVendorController {
                     .address(request.getAddress() != null ? request.getAddress() : "")
                     .phone(request.getMobile())
                     .email(request.getEmail())
+                    .latitude(request.getLatitude())
+                    .longitude(request.getLongitude())
                     .status(StoreStatus.ACTIVE)
                     .build();
             storeRepository.save(store);
@@ -56,5 +58,19 @@ public class InternalVendorController {
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
+    }
+
+    /**
+     * Verifies that the given vendor owns the given store.
+     * Used by redemption-service before processing a redemption.
+     */
+    @GetMapping("/{vendorId}/owns-store/{storeId}")
+    public java.util.Map<String, Boolean> ownsStore(
+            @PathVariable Long vendorId,
+            @PathVariable Long storeId) {
+        boolean owned = storeRepository.findByVendorId(vendorId)
+                .stream()
+                .anyMatch(s -> s.getId().equals(storeId));
+        return java.util.Map.of("owned", owned);
     }
 }

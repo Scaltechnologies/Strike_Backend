@@ -18,6 +18,10 @@ public class RedemptionResponse {
     private BigDecimal totalAmount;
     private BigDecimal remainingBalance;
     private RedemptionStatus status;
+    private String initiatedBy;
     private List<RedemptionItemResponse> items;
     private LocalDateTime createdAt;
+    private LocalDateTime approvedAt;
+    private LocalDateTime rejectedAt;
+    private String failureReason;
 }

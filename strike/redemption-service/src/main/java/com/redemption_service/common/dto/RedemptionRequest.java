@@ -13,9 +13,6 @@ public class RedemptionRequest {
     @NotNull(message = "Subscription ID is required")
     private Long subscriptionId;
 
-    @NotNull(message = "User ID is required")
-    private Long userId;
-
     @NotNull(message = "Store ID is required")
     private Long storeId;
 

@@ -19,7 +19,7 @@ import java.util.*;
 @RestController
 @RequestMapping("/api/admin/dashboard")
 @RequiredArgsConstructor
-@PreAuthorize("hasRole('ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN', 'SUPER_ADMIN')")
 public class AdminDashboardController {
 
     private final VendorRecordRepository vendorRecordRepository;

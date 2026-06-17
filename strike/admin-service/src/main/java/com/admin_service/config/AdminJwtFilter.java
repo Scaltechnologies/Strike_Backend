@@ -29,6 +29,8 @@ public class AdminJwtFilter extends OncePerRequestFilter {
         String path = request.getRequestURI();
         return path.equals("/api/admin/auth/login")
                 || path.equals("/api/admin/auth/setup")
+                || path.equals("/api/admin/auth/refresh")
+                || path.equals("/api/admin/auth/logout")
                 || path.startsWith("/internal/")
                 || path.startsWith("/v3/api-docs")
                 || path.startsWith("/swagger-ui");

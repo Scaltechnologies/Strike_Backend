@@ -19,6 +19,8 @@ public interface SubscriptionService {
     BalanceResponse deductBalance(Long subscriptionId, BigDecimal amount);
     SubscriptionResponse cancelSubscription(Long id, Long userId);
 
+    Long getCardDefinitionId(Long subscriptionId);
+
     /**
      * Marks all ACTIVE subscriptions whose expiresAt has passed as EXPIRED.
      * Called by the scheduled job and the internal ops endpoint.

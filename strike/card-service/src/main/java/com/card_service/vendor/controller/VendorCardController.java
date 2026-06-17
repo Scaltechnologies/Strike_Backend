@@ -1,6 +1,7 @@
 package com.card_service.vendor.controller;
 
 import com.card_service.common.dto.CardDefinitionResponse;
+import com.card_service.common.dto.CardPreviewResponse;
 import com.card_service.common.dto.CreateCardRequest;
 import com.card_service.common.dto.SubscriptionResponse;
 import com.card_service.common.dto.UpdateCardRequest;
@@ -55,6 +56,11 @@ public class VendorCardController {
         cardService.deactivateCard(id, vendorId);
     }
 
+    @GetMapping("/{id}/preview")
+    public ApiResponse<CardPreviewResponse> previewCard(@PathVariable Long id) {
+        return ApiResponse.success(cardService.getCardPreview(id));
+    }
+
     @GetMapping("/subscriptions/store/{storeId}")
     public ApiResponse<PageResponse<SubscriptionResponse>> getSubscriptionsByStore(
             @PathVariable Long storeId,
@@ -64,7 +70,14 @@ public class VendorCardController {
     }
 
     @GetMapping("/subscriptions/{subscriptionId}")
-    public ApiResponse<SubscriptionResponse> getSubscriptionById(@PathVariable Long subscriptionId) {
+    @PreAuthorize("hasAnyRole('VENDOR', 'USER', 'ADMIN')")
+    public ApiResponse<SubscriptionResponse> getSubscriptionById(
+            @RequestHeader("X-User-Id") Long requesterId,
+            @RequestHeader("X-User-Role") String role,
+            @PathVariable Long subscriptionId) {
+        if ("USER".equals(role)) {
+            return ApiResponse.success(subscriptionService.getByIdForUser(subscriptionId, requesterId));
+        }
         return ApiResponse.success(subscriptionService.getById(subscriptionId));
     }
 }

@@ -228,6 +228,11 @@ public class SubscriptionServiceImpl implements SubscriptionService {
         }
     }
 
+    @Override
+    public Long getCardDefinitionId(Long subscriptionId) {
+        return findById(subscriptionId).getCardDefinitionId();
+    }
+
     private ActiveSubscription findById(Long id) {
         return subscriptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Subscription not found with id: " + id));

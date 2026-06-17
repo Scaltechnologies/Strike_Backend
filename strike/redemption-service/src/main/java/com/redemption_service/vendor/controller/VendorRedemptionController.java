@@ -1,7 +1,9 @@
 package com.redemption_service.vendor.controller;
 
+import com.redemption_service.common.dto.RedemptionQueueResponse;
 import com.redemption_service.common.dto.RedemptionRequest;
 import com.redemption_service.common.dto.RedemptionResponse;
+import com.redemption_service.common.dto.RejectRedemptionRequest;
 import com.redemption_service.common.response.ApiResponse;
 import com.redemption_service.common.response.PageResponse;
 import com.redemption_service.common.service.IdempotencyService;
@@ -11,8 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -24,29 +28,29 @@ public class VendorRedemptionController {
     private final RedemptionService redemptionService;
     private final IdempotencyService idempotencyService;
 
+    // ── Legacy POS-direct redemption ──────────────────────────────────────────
+
     @PostMapping
     @PreAuthorize("hasRole('VENDOR')")
     public ResponseEntity<?> redeem(
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody RedemptionRequest request) {
 
-        // 1. Return cached response or 409 if already in-flight
         Optional<ResponseEntity<?>> cached = idempotencyService.check(idempotencyKey);
         if (cached.isPresent()) return cached.get();
 
-        // 2. Reserve key before processing to prevent concurrent duplicates
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
             if (!idempotencyService.reserve(idempotencyKey)) {
                 return ResponseEntity.status(HttpStatus.CONFLICT)
                         .body(Map.of("error",
-                                "A request with this Idempotency-Key is already being processed. Retry in a moment."));
+                                "A request with this Idempotency-Key is already being processed."));
             }
         }
 
-        // 3. Process — cancel reservation on failure so client can retry
+        Long vendorId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         try {
             ApiResponse<RedemptionResponse> result = ApiResponse.success(
-                    "Redemption processed", redemptionService.redeem(request));
+                    "Redemption processed", redemptionService.redeem(vendorId, request));
             idempotencyService.complete(idempotencyKey, result, HttpStatus.CREATED.value());
             return ResponseEntity.status(HttpStatus.CREATED).body(result);
         } catch (RuntimeException e) {
@@ -54,6 +58,39 @@ public class VendorRedemptionController {
             throw e;
         }
     }
+
+    // ── Phase 5: pending queue ────────────────────────────────────────────────
+
+    @GetMapping("/store/{storeId}/queue")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ApiResponse<List<RedemptionQueueResponse>> getPendingQueue(@PathVariable Long storeId) {
+        return ApiResponse.success(redemptionService.getPendingQueue(storeId));
+    }
+
+    // ── Phase 5: approve ─────────────────────────────────────────────────────
+
+    @PostMapping("/{id}/approve")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ApiResponse<RedemptionResponse> approve(@PathVariable Long id) {
+        Long vendorId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return ApiResponse.success("Redemption approved",
+                redemptionService.approveRedemption(vendorId, id));
+    }
+
+    // ── Phase 5: reject ──────────────────────────────────────────────────────
+
+    @PostMapping("/{id}/reject")
+    @PreAuthorize("hasRole('VENDOR')")
+    public ApiResponse<RedemptionResponse> reject(
+            @PathVariable Long id,
+            @RequestBody(required = false) RejectRedemptionRequest body) {
+        Long vendorId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        String reason = body != null ? body.getReason() : null;
+        return ApiResponse.success("Redemption rejected",
+                redemptionService.rejectRedemption(vendorId, id, reason));
+    }
+
+    // ── History ───────────────────────────────────────────────────────────────
 
     @GetMapping("/store/{storeId}")
     @PreAuthorize("hasAnyRole('VENDOR', 'ADMIN')")

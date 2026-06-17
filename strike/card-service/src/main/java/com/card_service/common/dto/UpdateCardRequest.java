@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Data
 public class UpdateCardRequest {
@@ -29,4 +30,10 @@ public class UpdateCardRequest {
     private String imageUrl;
 
     private Boolean isActive;
+
+    @Size(min = 1, message = "At least one menu category must be selected")
+    private List<Long> categoryIds;
+
+    @Size(min = 1, message = "If provided, eligibleMenuItemIds must contain at least one item")
+    private List<Long> eligibleMenuItemIds;
 }

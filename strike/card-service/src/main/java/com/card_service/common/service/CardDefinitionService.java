@@ -1,6 +1,7 @@
 package com.card_service.common.service;
 
 import com.card_service.common.dto.CardDefinitionResponse;
+import com.card_service.common.dto.CardPreviewResponse;
 import com.card_service.common.dto.CreateCardRequest;
 import com.card_service.common.dto.UpdateCardRequest;
 
@@ -14,4 +15,8 @@ public interface CardDefinitionService {
     List<CardDefinitionResponse> getCardsByVendor(Long vendorId);
     CardDefinitionResponse updateCard(Long id, Long vendorId, UpdateCardRequest request);
     void deactivateCard(Long id, Long vendorId);
+    List<Long> getEligibleCategoryIds(Long cardDefinitionId);
+    List<Long> getEligibleMenuItemIds(Long cardDefinitionId);
+    boolean isCategoryMappedToActiveCard(Long categoryId);
+    CardPreviewResponse getCardPreview(Long cardDefinitionId);
 }

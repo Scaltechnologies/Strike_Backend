@@ -91,6 +91,13 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "A record with this data already exists");
     }
 
+    @ExceptionHandler(org.springframework.orm.ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLocking(
+            org.springframework.orm.ObjectOptimisticLockingFailureException ex) {
+        return error(HttpStatus.CONFLICT,
+                "This redemption was already processed by another request. Please refresh and try again.");
+    }
+
     // ── Inter-service calls ─────────────────────────────────────────────────
 
     @ExceptionHandler(ResourceAccessException.class)

@@ -1,11 +1,16 @@
 package com.redemption_service.user.controller;
 
+import com.redemption_service.common.dto.RedemptionRequest;
 import com.redemption_service.common.dto.RedemptionResponse;
 import com.redemption_service.common.response.ApiResponse;
 import com.redemption_service.common.response.PageResponse;
 import com.redemption_service.common.service.RedemptionService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -14,6 +19,20 @@ import org.springframework.web.bind.annotation.*;
 public class UserRedemptionController {
 
     private final RedemptionService redemptionService;
+
+    // ── Phase 5: user submits redemption request ──────────────────────────────
+
+    @PostMapping("/request")
+    @PreAuthorize("hasRole('USER')")
+    public ResponseEntity<ApiResponse<RedemptionResponse>> request(
+            @Valid @RequestBody RedemptionRequest body) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        RedemptionResponse result = redemptionService.requestRedemption(userId, body);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Redemption request submitted. Waiting for store approval.", result));
+    }
+
+    // ── Read ──────────────────────────────────────────────────────────────────
 
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasAnyRole('USER', 'ADMIN')")

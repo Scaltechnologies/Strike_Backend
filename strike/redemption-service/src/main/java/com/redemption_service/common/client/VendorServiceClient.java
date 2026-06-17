@@ -29,11 +29,26 @@ public class VendorServiceClient {
                 String name = item.get("name").asText();
                 BigDecimal price = new BigDecimal(item.get("price").asText());
                 Long itemStoreId = item.get("storeId").asLong();
-                result.put(id, new MenuItemInfo(id, name, price, itemStoreId));
+                Long categoryId = item.has("categoryId") && !item.get("categoryId").isNull()
+                        ? item.get("categoryId").asLong() : null;
+                String availabilityStatus = item.has("availabilityStatus") && !item.get("availabilityStatus").isNull()
+                        ? item.get("availabilityStatus").asText() : null;
+                result.put(id, new MenuItemInfo(id, name, price, itemStoreId, categoryId, availabilityStatus));
             }
         }
         return result;
     }
 
-    public record MenuItemInfo(Long id, String name, BigDecimal price, Long storeId) {}
+    /**
+     * Returns true if the given vendor owns the given store.
+     * Used before processing a redemption to prevent cross-vendor attacks.
+     */
+    public boolean verifyVendorOwnsStore(Long vendorId, Long storeId) {
+        String url = vendorServiceUrl + "/internal/vendors/" + vendorId + "/owns-store/" + storeId;
+        JsonNode response = restTemplate.getForObject(url, JsonNode.class);
+        return response != null && response.get("owned").asBoolean(false);
+    }
+
+    public record MenuItemInfo(Long id, String name, BigDecimal price, Long storeId, Long categoryId,
+                               String availabilityStatus) {}
 }
