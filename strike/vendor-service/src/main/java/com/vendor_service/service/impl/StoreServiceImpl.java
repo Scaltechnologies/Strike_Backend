@@ -20,11 +20,13 @@ import com.vendor_service.repository.StoreRepository;
 import com.vendor_service.repository.StoreTimingRepository;
 import com.vendor_service.service.StoreService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.Comparator;
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StoreServiceImpl implements StoreService {
@@ -38,8 +40,12 @@ public class StoreServiceImpl implements StoreService {
 
     @Override
     public StoreResponse getStoreByVendorId(Long vendorId) {
+        log.info("[StoreService] getStoreByVendorId — vendorId={}", vendorId);
         Store store = findByVendorId(vendorId);
-        return toResponse(store);
+        log.info("[StoreService] found store — id={}, name={}", store.getId(), store.getName());
+        StoreResponse response = toResponse(store);
+        log.info("[StoreService] DTO mapping complete — storeId={}", response.getId());
+        return response;
     }
 
     @Override
@@ -153,8 +159,9 @@ public class StoreServiceImpl implements StoreService {
     }
 
     private Store findByVendorId(Long vendorId) {
-        return storeRepository.findByVendorId(vendorId)
-                .stream().findFirst()
+        List<Store> results = storeRepository.findByVendorId(vendorId);
+        log.info("[StoreService] findByVendorId — vendorId={}, found={}", vendorId, results.size());
+        return results.stream().findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Store not found for vendor: " + vendorId));
     }
 

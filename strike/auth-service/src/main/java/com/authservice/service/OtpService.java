@@ -17,7 +17,7 @@ import java.util.Map;
 public class OtpService {
 
     private static final int OTP_COOLDOWN_SECONDS = 60;
-    private static final int OTP_MAX_PER_HOUR = 5;
+    private static final int OTP_MAX_PER_HOUR = 6;
 
     private final OtpRepository otpRepository;
     private final RestTemplate restTemplate;
@@ -41,7 +41,7 @@ public class OtpService {
             }
         });
 
-        // Hourly cap: reject if 5 or more OTPs were sent in the last hour
+        // Hourly cap: reject if 6 or more OTPs were sent in the last hour
         int recentCount = otpRepository.countByMobileAndCreatedAtAfter(mobile, now.minusHours(1));
         if (recentCount >= OTP_MAX_PER_HOUR) {
             throw new RuntimeException("Too many OTP requests. Please try again after an hour.");

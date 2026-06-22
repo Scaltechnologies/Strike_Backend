@@ -15,7 +15,7 @@ import java.security.Key;
 import java.util.*;
 
 @Component
-@Order(1)
+@Order(-200)
 public class JwtHeaderFilter implements Filter {
 
     @Value("${jwt.secret}")

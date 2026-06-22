@@ -58,7 +58,7 @@ class OtpServiceTest {
         when(otpRepository.findTopByMobileOrderByCreatedAtDesc("9876543210"))
                 .thenReturn(Optional.empty());
         when(otpRepository.countByMobileAndCreatedAtAfter(eq("9876543210"), any()))
-                .thenReturn(5);
+                .thenReturn(6);
 
         assertThatThrownBy(() -> otpService.generateOtp("9876543210"))
                 .isInstanceOf(RuntimeException.class)

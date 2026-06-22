@@ -9,19 +9,6 @@ spring:
     gateway:
       server:
         webflux:
-          globalcors:
-            corsConfigurations:
-              '[/**]':
-                allowedOriginPatterns: "*"
-                allowedMethods:
-                  - GET
-                  - POST
-                  - PUT
-                  - DELETE
-                  - OPTIONS
-                  - PATCH
-                allowedHeaders: "*"
-                allowCredentials: false
           routes:
             - id: auth-service
               uri: http://localhost:8081

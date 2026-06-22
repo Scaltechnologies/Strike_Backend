@@ -185,11 +185,16 @@ public class RedemptionServiceImpl implements RedemptionService {
     // ── Phase 5: vendor views pending queue ───────────────────────────────────
 
     @Override
+    @Transactional(readOnly = true)
     public List<RedemptionQueueResponse> getPendingQueue(Long storeId) {
-        return redemptionRepository
-                .findByStoreIdAndStatusOrderByCreatedAtAsc(storeId, RedemptionStatus.PENDING)
-                .stream()
-                .map(r -> toQueueResponse(r, userServiceClient.getCustomerName(r.getUserId())))
+        List<RedemptionRecord> records = redemptionRepository
+                .findByStoreIdAndStatusOrderByCreatedAtAsc(storeId, RedemptionStatus.PENDING);
+        Map<Long, String> customerNames = new HashMap<>();
+        for (RedemptionRecord r : records) {
+            customerNames.computeIfAbsent(r.getUserId(), userServiceClient::getCustomerName);
+        }
+        return records.stream()
+                .map(r -> toQueueResponse(r, customerNames.get(r.getUserId())))
                 .toList();
     }
 
