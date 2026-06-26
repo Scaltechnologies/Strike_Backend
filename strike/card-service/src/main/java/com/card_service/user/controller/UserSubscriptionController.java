@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -35,9 +36,9 @@ public class UserSubscriptionController {
 
     @PostMapping
     public ResponseEntity<?> purchase(
-            @RequestHeader("X-User-Id") Long userId,
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody PurchaseSubscriptionRequest request) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
 
         Optional<ResponseEntity<?>> cached = idempotencyService.check(idempotencyKey);
         if (cached.isPresent()) return cached.get();
@@ -63,29 +64,27 @@ public class UserSubscriptionController {
 
     @GetMapping("/my")
     public ApiResponse<PageResponse<SubscriptionResponse>> getMySubscriptions(
-            @RequestHeader("X-User-Id") Long userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ApiResponse.success(subscriptionService.getByUser(userId, page, size));
     }
 
     @GetMapping("/my/active")
-    public ApiResponse<List<SubscriptionResponse>> getMyActiveSubscriptions(
-            @RequestHeader("X-User-Id") Long userId) {
+    public ApiResponse<List<SubscriptionResponse>> getMyActiveSubscriptions() {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ApiResponse.success(subscriptionService.getActiveByUser(userId));
     }
 
     @GetMapping("/{id}")
-    public ApiResponse<SubscriptionResponse> getById(
-            @RequestHeader("X-User-Id") Long userId,
-            @PathVariable Long id) {
+    public ApiResponse<SubscriptionResponse> getById(@PathVariable Long id) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ApiResponse.success(subscriptionService.getByIdForUser(id, userId));
     }
 
     @PatchMapping("/{id}/cancel")
-    public ApiResponse<SubscriptionResponse> cancel(
-            @RequestHeader("X-User-Id") Long userId,
-            @PathVariable Long id) {
+    public ApiResponse<SubscriptionResponse> cancel(@PathVariable Long id) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return ApiResponse.success("Subscription cancelled", subscriptionService.cancelSubscription(id, userId));
     }
 
@@ -95,10 +94,8 @@ public class UserSubscriptionController {
      */
     @GetMapping("/{subscriptionId}/menu")
     @PreAuthorize("hasRole('USER')")
-    public ApiResponse<EligibleMenuResponse> getEligibleMenu(
-            @PathVariable Long subscriptionId,
-            @RequestHeader("X-User-Id") Long userId) {
-
+    public ApiResponse<EligibleMenuResponse> getEligibleMenu(@PathVariable Long subscriptionId) {
+        Long userId = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         SubscriptionResponse sub = subscriptionService.getByIdForUser(subscriptionId, userId);
 
         if (sub.getStatus() != SubscriptionStatus.ACTIVE) {

@@ -7,7 +7,8 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "store_timings")
+@Table(name = "store_timings",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"store_id", "day_of_week"}))
 @Getter
 @Setter
 @NoArgsConstructor

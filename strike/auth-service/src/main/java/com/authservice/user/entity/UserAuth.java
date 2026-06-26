@@ -28,6 +28,7 @@ public class UserAuth {
     @Column(
             name = "mobile_number",
             nullable = false,
+            unique = true,
             length = 10
     )
     private String mobileNumber;

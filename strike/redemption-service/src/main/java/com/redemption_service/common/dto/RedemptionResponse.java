@@ -19,6 +19,7 @@ public class RedemptionResponse {
     private BigDecimal remainingBalance;
     private RedemptionStatus status;
     private String initiatedBy;
+    private String customerName;
     private List<RedemptionItemResponse> items;
     private LocalDateTime createdAt;
     private LocalDateTime approvedAt;

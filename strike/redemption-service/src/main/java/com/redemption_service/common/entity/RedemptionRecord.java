@@ -48,6 +48,10 @@ public class RedemptionRecord {
 
     private LocalDateTime approvedAt;
 
+    // Balance remaining in the subscription wallet after vendor approval.
+    // Stored so GET /api/redemptions/{id} can return it without a card-service round-trip.
+    private BigDecimal approvedBalance;
+
     private LocalDateTime rejectedAt;
 
     @OneToMany(mappedBy = "redemptionRecord", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

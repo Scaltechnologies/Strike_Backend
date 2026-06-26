@@ -15,6 +15,12 @@ spring:
       ddl-auto: update
     show-sql: false
 
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
 services:
   card-url: http://localhost:8084
   redemption-url: http://localhost:8085

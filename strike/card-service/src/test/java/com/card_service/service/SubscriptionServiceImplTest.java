@@ -133,6 +133,66 @@ class SubscriptionServiceImplTest {
         verify(adminServiceClient).recordCommission(eq(10L), eq(100L), eq(1L), eq(42L), any());
     }
 
+    // ── scenario: purchase after first login ─────────────────────────────────
+    // Verifies that the subscription's userId is exactly the authenticated JWT sub,
+    // not a cached or previously set value.
+
+    @Test
+    void purchase_afterFirstLogin_subscriptionBelongsToAuthenticatedUser() {
+        Long authenticatedUserId = 7L; // JWT sub from first login
+        when(cardRepository.findById(1L)).thenReturn(Optional.of(activeCard()));
+
+        ActiveSubscription saved = ActiveSubscription.builder()
+                .id(10L).userId(authenticatedUserId).cardDefinitionId(1L).storeId(100L)
+                .walletBalance(new BigDecimal("600.00"))
+                .status(SubscriptionStatus.ACTIVE)
+                .purchasedAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusDays(30))
+                .build();
+        when(subscriptionRepository.save(any(ActiveSubscription.class))).thenReturn(saved);
+
+        PurchaseSubscriptionRequest req = new PurchaseSubscriptionRequest();
+        req.setCardDefinitionId(1L);
+        req.setStoreId(100L);
+
+        SubscriptionResponse response = subscriptionService.purchase(authenticatedUserId, req);
+
+        // Subscription must be owned by the JWT sub, not any other user
+        assertThat(response.getUserId()).isEqualTo(authenticatedUserId);
+
+        // Ledger and commission records must also use the same userId
+        verify(ledgerServiceClient).recordCardPurchase(eq(100L), eq(authenticatedUserId), any(), any(), any());
+        verify(adminServiceClient).recordCommission(any(), any(), any(), eq(authenticatedUserId), any());
+    }
+
+    // ── scenario: purchase after repaired profile ─────────────────────────────
+    // After ensure-profile repaired a missing user_profiles row, the next purchase
+    // must still use the correct authenticated userId from the JWT header.
+
+    @Test
+    void purchase_afterRepairedProfile_subscriptionBelongsToRepairedUser() {
+        Long repairedUserId = 2L; // the user from the bug report whose profile was missing
+        when(cardRepository.findById(1L)).thenReturn(Optional.of(activeCard()));
+
+        ActiveSubscription saved = ActiveSubscription.builder()
+                .id(20L).userId(repairedUserId).cardDefinitionId(1L).storeId(100L)
+                .walletBalance(new BigDecimal("600.00"))
+                .status(SubscriptionStatus.ACTIVE)
+                .purchasedAt(LocalDateTime.now())
+                .expiresAt(LocalDateTime.now().plusDays(30))
+                .build();
+        when(subscriptionRepository.save(any(ActiveSubscription.class))).thenReturn(saved);
+
+        PurchaseSubscriptionRequest req = new PurchaseSubscriptionRequest();
+        req.setCardDefinitionId(1L);
+        req.setStoreId(100L);
+
+        SubscriptionResponse response = subscriptionService.purchase(repairedUserId, req);
+
+        assertThat(response.getUserId()).isEqualTo(repairedUserId);
+        verify(ledgerServiceClient).recordCardPurchase(any(), eq(repairedUserId), any(), any(), any());
+    }
+
     // ── deductBalance ────────────────────────────────────────────────────────
 
     @Test

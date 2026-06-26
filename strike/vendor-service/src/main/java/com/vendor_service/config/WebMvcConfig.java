@@ -1,3 +1,4 @@
+// WebMvcConfig — argument resolvers only; Jackson config is in application.yaml
 package com.vendor_service.config;
 
 import com.vendor_service.common.resolver.CurrentVendorIdResolver;

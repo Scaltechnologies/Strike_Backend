@@ -38,6 +38,7 @@ jwt:
   refresh-expiration: 2592000000  # 30 days
 
 services:
+  user-url: http://localhost:8082
   vendor-url: http://localhost:8083
   admin-url: http://localhost:8087
   notification-url: http://localhost:8088

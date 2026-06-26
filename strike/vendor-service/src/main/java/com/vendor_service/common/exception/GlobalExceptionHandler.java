@@ -124,8 +124,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ErrorResponse> handleRuntime(RuntimeException ex) {
+        log.error("[GlobalExceptionHandler] Unhandled RuntimeException — type={}, message={}",
+                ex.getClass().getName(), ex.getMessage(), ex);
         if (ex.getMessage() == null) {
-            log.error("Unexpected runtime exception with no message", ex);
             return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
         }
         return error(HttpStatus.BAD_REQUEST, ex.getMessage());
@@ -133,7 +134,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleGeneral(Exception ex) {
-        log.error("Unhandled exception", ex);
+        log.error("[GlobalExceptionHandler] Unhandled checked Exception — type={}, message={}",
+                ex.getClass().getName(), ex.getMessage(), ex);
         return error(HttpStatus.INTERNAL_SERVER_ERROR, "An unexpected error occurred");
     }
 

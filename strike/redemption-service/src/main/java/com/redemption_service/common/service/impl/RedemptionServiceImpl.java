@@ -140,6 +140,7 @@ public class RedemptionServiceImpl implements RedemptionService {
 
         record.setStatus(RedemptionStatus.COMPLETED);
         record.setApprovedAt(LocalDateTime.now());
+        record.setApprovedBalance(remainingBalance);
         RedemptionRecord saved = redemptionRepository.save(record);
 
         recordLedger(saved, record.getTotalAmount());
@@ -201,11 +202,13 @@ public class RedemptionServiceImpl implements RedemptionService {
     // ── Read ──────────────────────────────────────────────────────────────────
 
     @Override
+    @Transactional(readOnly = true)
     public RedemptionResponse getById(Long id) {
         return toResponse(findById(id), null);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<RedemptionResponse> getBySubscription(Long subscriptionId, int page, int size) {
         return PageResponse.from(
                 redemptionRepository.findBySubscriptionIdOrderByCreatedAtDesc(
@@ -214,13 +217,19 @@ public class RedemptionServiceImpl implements RedemptionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<RedemptionResponse> getByStore(Long storeId, int page, int size) {
-        return PageResponse.from(
-                redemptionRepository.findByStoreIdOrderByCreatedAtDesc(storeId, PageRequest.of(page, size))
-                        .map(r -> toResponse(r, null)));
+        org.springframework.data.domain.Page<RedemptionRecord> pageResult =
+                redemptionRepository.findByStoreIdOrderByCreatedAtDesc(storeId, PageRequest.of(page, size));
+        Map<Long, String> names = new HashMap<>();
+        for (RedemptionRecord r : pageResult.getContent()) {
+            names.computeIfAbsent(r.getUserId(), userServiceClient::getCustomerName);
+        }
+        return PageResponse.from(pageResult.map(r -> toResponse(r, null, names.get(r.getUserId()))));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<RedemptionResponse> getByUser(Long userId, int page, int size) {
         return PageResponse.from(
                 redemptionRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size))
@@ -228,6 +237,7 @@ public class RedemptionServiceImpl implements RedemptionService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PageResponse<RedemptionResponse> getAll(int page, int size) {
         return PageResponse.from(
                 redemptionRepository.findAll(PageRequest.of(page, size))
@@ -347,6 +357,10 @@ public class RedemptionServiceImpl implements RedemptionService {
     }
 
     private RedemptionResponse toResponse(RedemptionRecord record, BigDecimal remainingBalance) {
+        return toResponse(record, remainingBalance, null);
+    }
+
+    private RedemptionResponse toResponse(RedemptionRecord record, BigDecimal remainingBalance, String customerName) {
         List<RedemptionItemResponse> itemResponses = record.getItems().stream()
                 .map(i -> RedemptionItemResponse.builder()
                         .menuItemId(i.getMenuItemId())
@@ -357,15 +371,18 @@ public class RedemptionServiceImpl implements RedemptionService {
                         .build())
                 .toList();
 
+        BigDecimal balance = remainingBalance != null ? remainingBalance : record.getApprovedBalance();
+
         return RedemptionResponse.builder()
                 .id(record.getId())
                 .subscriptionId(record.getSubscriptionId())
                 .userId(record.getUserId())
                 .storeId(record.getStoreId())
                 .totalAmount(record.getTotalAmount())
-                .remainingBalance(remainingBalance)
+                .remainingBalance(balance)
                 .status(record.getStatus())
                 .initiatedBy(record.getInitiatedBy())
+                .customerName(customerName)
                 .items(itemResponses)
                 .createdAt(record.getCreatedAt())
                 .approvedAt(record.getApprovedAt())

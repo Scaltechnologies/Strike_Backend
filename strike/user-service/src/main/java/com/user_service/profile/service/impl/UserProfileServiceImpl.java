@@ -7,6 +7,7 @@ import com.user_service.profile.repository.UserProfileRepository;
 import com.user_service.profile.service.UserProfileService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
@@ -17,6 +18,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     private final UserProfileRepository userProfileRepository;
 
     @Override
+    @Transactional
     public UserProfileResponse getOrCreateProfile(Long userId, String mobile) {
         UserProfile profile = userProfileRepository.findById(userId)
                 .orElseGet(() -> {
@@ -30,6 +32,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     @Override
+    @Transactional
     public UserProfileResponse updateProfile(Long userId, UserProfileRequest request) {
         UserProfile profile = userProfileRepository.findById(userId)
                 .orElseGet(() -> UserProfile.builder().userId(userId).build());
@@ -40,6 +43,7 @@ public class UserProfileServiceImpl implements UserProfileService {
     }
 
     @Override
+    @Transactional
     public UserProfileResponse updateLocation(Long userId, double latitude, double longitude) {
         UserProfile profile = userProfileRepository.findById(userId)
                 .orElseGet(() -> UserProfile.builder().userId(userId).build());

@@ -1,5 +1,6 @@
 package com.authservice.user.service;
 
+import com.authservice.client.UserServiceClient;
 import com.authservice.security.JwtUtil;
 import com.authservice.service.OtpService;
 import com.authservice.service.RefreshTokenService;
@@ -21,6 +22,7 @@ public class UserAuthServiceImpl implements UserAuthService {
     private final OtpService otpService;
     private final JwtUtil jwtUtil;
     private final RefreshTokenService refreshTokenService;
+    private final UserServiceClient userServiceClient;
 
     @Value("${jwt.expiration}")
     private long jwtExpirationMs;
@@ -66,6 +68,11 @@ public class UserAuthServiceImpl implements UserAuthService {
 
         String accessToken = jwtUtil.generateToken(user.getId(), user.getMobileNumber(), "USER");
         String refreshToken = refreshTokenService.createForUser(user.getId());
+
+        // Ensure user_profiles row exists for both new and returning users.
+        // This is idempotent — safe to call on every login.
+        // A missing profile (the root-cause bug) is also repaired here on next login.
+        userServiceClient.ensureProfile(user.getId(), user.getMobileNumber());
 
         return AuthResponse.builder()
                 .userId(user.getId())

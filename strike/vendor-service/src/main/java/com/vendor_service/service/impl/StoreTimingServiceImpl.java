@@ -13,12 +13,16 @@ import com.vendor_service.repository.StoreRepository;
 import com.vendor_service.repository.StoreTimingRepository;
 import com.vendor_service.service.StoreTimingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
+@Transactional
 public class StoreTimingServiceImpl implements StoreTimingService {
 
     private final StoreRepository storeRepository;
@@ -26,7 +30,10 @@ public class StoreTimingServiceImpl implements StoreTimingService {
     private final StoreHolidayRepository storeHolidayRepository;
 
     @Override
+    @Transactional
     public StoreTimingResponse addOrUpdateTiming(Long storeId, StoreTimingRequest request) {
+        log.info("[StoreTimingService] addOrUpdateTiming — storeId={}, day={}, isClosed={}",
+                storeId, request.getDayOfWeek(), request.getIsClosed());
         validateStoreExists(storeId);
 
         if (!Boolean.TRUE.equals(request.getIsClosed())
@@ -70,7 +77,9 @@ public class StoreTimingServiceImpl implements StoreTimingService {
     }
 
     @Override
+    @Transactional
     public StoreHolidayResponse addHoliday(Long storeId, StoreHolidayRequest request) {
+        log.info("[StoreTimingService] addHoliday — storeId={}, date={}", storeId, request.getDate());
         validateStoreExists(storeId);
 
         storeHolidayRepository.findByStoreIdAndDate(storeId, request.getDate())

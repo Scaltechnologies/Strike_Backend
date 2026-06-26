@@ -45,28 +45,36 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                                     FilterChain chain)
             throws ServletException, IOException {
 
-        String userId = request.getHeader("X-User-Id");
-        String role   = request.getHeader("X-User-Role");
+        String userId = null;
+        String role   = null;
 
-        // Fallback: parse JWT directly when gateway headers are absent
-        if (userId == null || userId.isBlank() || role == null || role.isBlank()) {
-            String authHeader = request.getHeader("Authorization");
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                try {
-                    Key key = signingKey;
-                    Claims claims = Jwts.parserBuilder()
-                            .setSigningKey(key).build()
-                            .parseClaimsJws(authHeader.substring(7)).getBody();
-                    userId = claims.getSubject();
-                    role   = claims.get("role", String.class);
-                    log.debug("[JwtAuthFilter] card-service — JWT parsed directly: userId={} role={}", userId, role);
-                } catch (Exception ex) {
-                    log.warn("[JwtAuthFilter] card-service — JWT parse failed ({}): {}",
-                            ex.getClass().getSimpleName(), ex.getMessage());
-                }
+        // Priority 1: Bearer JWT — cryptographically verified; the gateway always forwards it.
+        // Prevents X-User-Id header spoofing on direct calls that bypass the gateway.
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            try {
+                Claims claims = Jwts.parserBuilder()
+                        .setSigningKey(signingKey).build()
+                        .parseClaimsJws(authHeader.substring(7)).getBody();
+                userId = claims.getSubject();
+                role   = claims.get("role", String.class);
+                log.debug("[JwtAuthFilter] card-service — JWT verified: userId={} role={}", userId, role);
+            } catch (Exception ex) {
+                log.warn("[JwtAuthFilter] card-service — JWT parse failed ({}): {}",
+                        ex.getClass().getSimpleName(), ex.getMessage());
             }
-        } else {
-            log.debug("[JwtAuthFilter] card-service — headers present: X-User-Id={} X-User-Role={}", userId, role);
+        }
+
+        // Priority 2: Gateway-injected headers — trusted fallback for internal service-to-service
+        // calls that carry no Bearer token (e.g. user-service proxy calls card-service directly).
+        if (userId == null || role == null) {
+            String hUserId = request.getHeader("X-User-Id");
+            String hRole   = request.getHeader("X-User-Role");
+            if (hUserId != null && !hUserId.isBlank() && hRole != null && !hRole.isBlank()) {
+                userId = hUserId;
+                role   = hRole;
+                log.debug("[JwtAuthFilter] card-service — using gateway headers: userId={} role={}", userId, role);
+            }
         }
 
         if (userId != null && !userId.isBlank() && role != null && !role.isBlank()) {

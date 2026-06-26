@@ -8,6 +8,7 @@ import com.card_service.common.exception.BadRequestException;
 import com.card_service.common.exception.ResourceNotFoundException;
 import com.card_service.common.repository.CardCategoryMappingRepository;
 import com.card_service.common.repository.CardDefinitionRepository;
+import com.card_service.common.repository.CardMenuItemMappingRepository;
 import com.card_service.common.service.impl.CardDefinitionServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,6 +31,7 @@ class CardDefinitionServiceImplTest {
 
     @Mock CardDefinitionRepository cardRepository;
     @Mock CardCategoryMappingRepository mappingRepository;
+    @Mock CardMenuItemMappingRepository itemMappingRepository;
     @Mock VendorServiceClient vendorServiceClient;
 
     @InjectMocks CardDefinitionServiceImpl cardService;

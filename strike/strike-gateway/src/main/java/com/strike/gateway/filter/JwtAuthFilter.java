@@ -52,13 +52,21 @@ public class JwtAuthFilter implements GlobalFilter, Ordered {
             String role = (String) claims.get("role");
             String mobile = claims.get("mobile", String.class);
 
-            ServerHttpRequest.Builder requestBuilder = exchange.getRequest().mutate()
-                    .header("X-User-Id", userId)
-                    .header("X-User-Role", role);
-            if (mobile != null) {
-                requestBuilder.header("X-User-Mobile", mobile);
-            }
-            ServerHttpRequest mutatedRequest = requestBuilder.build();
+            // Strip any client-supplied identity headers before injecting verified values.
+            // Prevents callers from spoofing X-User-Id / X-User-Role upstream of the gateway.
+            final String verifiedUserId = userId;
+            final String verifiedRole   = role;
+            final String verifiedMobile = mobile;
+            ServerHttpRequest mutatedRequest = exchange.getRequest().mutate()
+                    .headers(h -> {
+                        h.remove("X-User-Id");
+                        h.remove("X-User-Role");
+                        h.remove("X-User-Mobile");
+                        h.set("X-User-Id",   verifiedUserId);
+                        h.set("X-User-Role", verifiedRole);
+                        if (verifiedMobile != null) h.set("X-User-Mobile", verifiedMobile);
+                    })
+                    .build();
 
             return chain.filter(exchange.mutate().request(mutatedRequest).build());
         } catch (Exception e) {
